@@ -16,7 +16,7 @@ isAuth = async (req, res, next) => {
   try {
     data = jwt.verify(token, process.env.SECRET);
 
-    user = await Driver.findOne({username:data.userName,passowrd:userPassword});
+    user = await Driver.findOne({username:data.userName,passowrd:data.userPassword});
     if (user == null) {
       return res
         .status(403)
