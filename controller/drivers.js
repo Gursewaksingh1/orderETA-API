@@ -1,8 +1,18 @@
 const Drivers = require("../model/driverModel");
 const jwt = require("jsonwebtoken");
+const {validationResult} = require("express-validator")
 
 exports.login = async (req, res) => {
   try {
+    const errors = validationResult(req);
+    // checking for validation errors
+    
+      if (!errors.isEmpty()) {
+      return res.status(400).send({
+        status: "failed",
+          errors: errors.array()
+      });
+    }
     //checking if user email and password is correct
     const user = await Drivers.findOne({
       username: req.body.username,
