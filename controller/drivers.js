@@ -29,7 +29,7 @@ exports.login = async (req, res) => {
       //creating refresh token
       let refreshToken = jwt.sign(
         { userName: user.username, userPassword: user.password },
-        process.env.SECRET,
+        process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: "24h" }
       );
       res.status(201).send({ status: "success", token, refreshToken });
@@ -62,7 +62,7 @@ exports.refreshToken = async (req, res) => {
       { expiresIn: 60*5 }
     );
     res.status(201).send({ status: "success", newToken });
-  } catch (error) {
+  } catch (err) {
     res.status(403).send({ status: "failed", error: err });
   }
 };
