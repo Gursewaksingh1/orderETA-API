@@ -17,7 +17,8 @@ app.use((req, res, next) => {
     next();
   });
 
-  app.use('/api', driverRouter);
+  app.use('/driverAPI', driverRouter);
+  app.use('/ordersAPI', orderRouter);
 
 mongoose.connect(_URI)
   .then(result => {
