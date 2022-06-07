@@ -23,6 +23,11 @@ const deliverySchema = new Schema({
         required: true,
         type: String,
     },
-
+      delivery_date: {
+        type: String
+    },
+    delivery_time: {
+        type:String
+    }
 })
 module.exports = mongoose.model('delivery', deliverySchema);
