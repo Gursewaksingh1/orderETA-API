@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ordersController = require('../controller/orders');
+const isAuth = require("../middleware/isAuth")
 
-
-router.get('/searchOrder',ordersController.searchOrder)
-router.post('/listOrders',ordersController.listOrders)
+router.get('/searchOrder',isAuth,ordersController.searchOrder)
+router.post('/listOrders',isAuth,ordersController.listOrders)
 
 module.exports = router;
