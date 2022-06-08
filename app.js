@@ -5,8 +5,11 @@ const port = process.env.PORT || 3000;
 const mongoose = require('mongoose');
 const dotenv = require("dotenv");
 const driverRouter = require("./router/drivers")
+const orderRouter = require("./router/orders")
+const deliveryRouter = require("./router/delivery")
 dotenv.config();
 const _URI = process.env.MONGODB_URI 
+
 
 app.use(bodyparser.urlencoded({extended: false }));
 app.use(express.json())
@@ -19,11 +22,11 @@ app.use((req, res, next) => {
 
   app.use('/driverAPI', driverRouter);
   app.use('/ordersAPI', orderRouter);
-
+  app.use('/deliveryAPI', deliveryRouter);
 mongoose.connect(_URI)
   .then(result => {
-     // console.log(result)
-      
+    //  console.log(result)
+   
     app.listen(port, () => {
       console.log(`listen on ${port}`);
     });
