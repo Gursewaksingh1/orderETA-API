@@ -75,8 +75,8 @@ const driverLoginValidationRules = () => {
       .isLength({ min: 3, max: 30 })
       .withMessage("username must contain three characters"),
     body("password")
-      .notEmpty("password must be a empty")
-      .withMessage("")
+      .notEmpty()
+      .withMessage("password must be empty")
       .isLength({ min: 6, max: 30 })
       .withMessage("password must contain six characters"),
   ];
