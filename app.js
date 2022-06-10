@@ -4,7 +4,7 @@ const bodyparser = require('body-parser');
 const port = process.env.PORT || 3000;
 const mongoose = require('mongoose');
 const dotenv = require("dotenv");
-const driverRouter = require("./router/drivers")
+const driverRouter = require("./router/_User")
 const orderRouter = require("./router/orders")
 const deliveryRouter = require("./router/delivery")
 dotenv.config();
@@ -20,7 +20,7 @@ app.use((req, res, next) => {
     next();
   });
 
-  app.use('/driverAPI', driverRouter);
+  app.use('/userAPI', userRouter);
   app.use('/ordersAPI', orderRouter);
   app.use('/deliveryAPI', deliveryRouter);
 mongoose.connect(_URI)
