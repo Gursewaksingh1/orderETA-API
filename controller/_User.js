@@ -1,8 +1,17 @@
 const User = require("../model/_User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const Orders = require("../model/ordersModel");
+exports.getOrders = async (req, res) => {
+  try {
+    const orders = await Orders.find({ user_id: "BviDHHWijJ" });
+    res.status(201).send({ status: "success", data: orders });
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+};
 exports.login = async (req, res) => {
-  const password = req.body.password
+  const password = req.body.password;
   try {
     const user = await User.findOne({ username: req.body.username });
     if (user == undefined || null) {
@@ -10,29 +19,32 @@ exports.login = async (req, res) => {
         .status(403)
         .send({ status: "failed", error: "invaild username or password" });
     } else {
-      //comparing password using bcrypt 
-      bcrypt.compare(password.toString(),user._hashed_password).then((result) => {
-        if (result) {
-          //creating acces s token
-          let token = jwt.sign(
-            { userName: user.username, userPassword: user._hashed_password },
-            process.env.SECRET,
-            { expiresIn: 60 * 5 }
-          );
+      //comparing password using bcrypt
+      bcrypt
+        .compare(password.toString(), user._hashed_password)
+        .then((result) => {
+          if (result) {
+            console.log(user);
+            //creating acces s token
+            let token = jwt.sign(
+              { userName: user.username, userId: user._id },
+              process.env.SECRET,
+              { expiresIn: 60 * 5 }
+            );
 
-          //creating refresh token
-          let refreshToken = jwt.sign(
-            { userName: user.username, userPassword: user._hashed_password },
-            process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: "24h" }
-          );
-          res.status(201).send({ status: "success", token, refreshToken });
-        } else {
-          res
-            .status(403)
-            .send({ status: "failed", msg: "invaild username or password" });
-        }
-      });
+            //creating refresh token
+            let refreshToken = jwt.sign(
+              { userName: user.username, userId: user._id },
+              process.env.REFRESH_TOKEN_SECRET,
+              { expiresIn: "24h" }
+            );
+            res.status(201).send({ status: "success", token, refreshToken });
+          } else {
+            res
+              .status(403)
+              .send({ status: "failed", msg: "invaild username or password" });
+          }
+        });
     }
   } catch (err) {
     res.status(401).send({ status: "failed", error: err });
@@ -53,7 +65,7 @@ exports.refreshToken = async (req, res) => {
     decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
     let newToken = jwt.sign(
       //generating new token
-      { userName: decoded.userName, userPassword: decoded.userPassword },
+      { userName: decoded.userName, userId: decoded.userId },
       process.env.SECRET,
       { expiresIn: 60 * 5 }
     );

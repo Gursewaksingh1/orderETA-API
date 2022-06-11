@@ -1,32 +1,82 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const ordersSchema = new Schema({
-    ACL: {
-        type: String,
+    
+    _id: {
+        required:true,
+        type:String
+    },
+    _updated_at:{
+        type:Date
+    },
+    _rperm: {
+        type:Array
+    },
+    _wperm:{
+       
+        type:Array
+    },
+    boxes_scanned_in:{
+        type: Number,
+    },
+    boxes_scanned_out:{
+        type: Number,
+    },
+    createdAt:{
+        type:String,
+    },
+    city: {
+        type:String,
+    },
+    collect: {
+        type:String,
+    },
+    cod: {
+        type:String
+    },
+    datetime_created: {
+        type:String,
+    },
+    DeliveryDate:{
+        type:String,
+    },
+    deleted_from_device:{
+        type:Number
+    },
+    desc: {
+        type:String
     },
     Display_lat: {
         
-        type: String,
+        type: Number,
     },
     Display_lng: {
         
-        type: String,
+        type: Number,
+    },
+    driver_string:{
+        type:String
+    },
+    dropped_off_info:{
+        type:Array
+    },
+    eta_assign:{
+        type:String
+    },
+    eta:{
+        type:Date
     },
     Geocords: {
         
-        type: String,
+        type: Array,
     },
-    boxes: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "boxes"
-    }],
     boxes_scanned_in: {
         
         type: Number,
     },
     case_descriptions: {
         
-        type: String,
+        type: Array,
     },
     cases: {
         
@@ -105,7 +155,7 @@ const ordersSchema = new Schema({
         type: Number,
     },
     lname: {
-        
+        required:true,
         type: String,
     },
     missing_info: {
@@ -148,7 +198,7 @@ const ordersSchema = new Schema({
         
         type: String,
     },
-    route_started_utc: {
+    route_started: {
         
         type: String,
     },
@@ -159,6 +209,9 @@ const ordersSchema = new Schema({
     snap_amount: {
         
         type: String,
+    },
+    seq:{
+        type: Number, 
     },
     sequence: {
         
@@ -187,6 +240,9 @@ const ordersSchema = new Schema({
     unit: {
         
         type: String,
+    },
+    updatedAt: {
+        type:Date
     },
     user_id: {
         

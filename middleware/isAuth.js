@@ -16,7 +16,7 @@ isAuth = async (req, res, next) => {
   try {
     data = jwt.verify(token, process.env.SECRET);
 
-    user = await User.findOne({username:data.userName,passowrd:data.userPassword});
+    user = await User.findOne({username:data.userName});
     if (user == null) {
       return res
         .status(403)
