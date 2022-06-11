@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const Orders = require("../model/ordersModel");
 exports.getOrders = async (req, res) => {
   try {
-    const orders = await Orders.find({ user_id: "BviDHHWijJ" });
+    const orders = await Orders.find({ user_id: req.user.userId });
     res.status(201).send({ status: "success", data: orders });
   } catch (err) {
     res.status(400).send({ status: "failed", error: err });
