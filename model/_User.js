@@ -1,7 +1,10 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const userSchema = new Schema({
-
+    _id:{
+        required:true,
+         type:String
+    },
     Language: {
         required: true,
         type: Number,
