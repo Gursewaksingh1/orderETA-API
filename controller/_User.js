@@ -2,25 +2,47 @@ const User = require("../model/_User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const Orders = require("../model/ordersModel");
+const { findOne } = require("../model/_User");
+
+//fetching all user's orders
 exports.getOrders = async (req, res) => {
-  let order_per_page = 1;
-  let pageNo = req.query.page
+  let order_per_page = 10;
+  let pageNo = req.query.page;
 
   try {
+    if (pageNo < 1 ||null || undefined) {
+      return res
+        .status(400)
+        .send({
+          status: "failed",
+          error: "page number must be a natural number",
+        });
+    }
     const orders = await Orders.find({ user_id: req.user.userId })
-      .skip((pageNo-1) *order_per_page)
-      .limit(order_per_page)
+      .skip((pageNo - 1) * order_per_page)
+      .limit(order_per_page);
     res.status(201).send({ status: "success", data: orders });
   } catch (err) {
     res.status(400).send({ status: "failed", error: err });
   }
 };
+
+//fetching user order by order id
+exports.getOrderByOrderId =async (req,res) => {
+  try {
+    console.log(req.params,req.user);
+    const order = await  Orders.findOne({order_id: req.params.orderId})
+    res.status(201).send({ status: "success", data: order });
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+}
 exports.login = async (req, res) => {
   const password = req.body.password;
 
   try {
     const user = await User.findOne({ username: req.body.username });
-   
+
     if (user == undefined || null) {
       res
         .status(403)
@@ -30,8 +52,6 @@ exports.login = async (req, res) => {
       bcrypt
         .compare(password.toString(), user._hashed_password)
         .then((result) => {
-        console.log(user._id );
-        
           if (result) {
             //creating acces s token
             let token = jwt.sign(

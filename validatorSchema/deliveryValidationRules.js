@@ -1,4 +1,4 @@
-const { body } = require("express-validator");
+const { body, check } = require("express-validator");
 
 const deliveryValidationRules = () => {
   return [
@@ -81,8 +81,28 @@ const driverLoginValidationRules = () => {
       .withMessage("password must contain six characters"),
   ];
 };
+
+const orders = () => {
+  return [
+    check("page")
+      .isFloat({ min: 1, max: 10000 })
+      .withMessage("page number must be greater then natural number"),
+  ];
+};
+
+const order = () => {
+  return [
+    check("orderId")
+      .notEmpty()
+      .withMessage("orderId must be empty")
+      // .isDecimal()
+      // .withMessage("orderId must be number"),
+  ];
+};
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
-  driverLoginValidationRules
+  driverLoginValidationRules,
+  orders,
+  order,
 };
