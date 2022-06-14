@@ -10,6 +10,7 @@ const boxesSchema = new Schema({
     number:{
         type:Number
     },
+   
     status :{
         description:{type: String},
         driver_id:{type: String},

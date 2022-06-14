@@ -6,17 +6,32 @@ const {
   driverLoginValidationRules,
   orders,
   order,
+  validateSeqNumber
 } = require("../validatorSchema/deliveryValidationRules");
 const isAuth = require("../middleware/isAuth");
 
-router.get("/orders", isAuth, userController.getOrders);
+router.get("/orders", orders(),
+validate, isAuth, userController.getOrders);
+
 router.get(
-  "/orders/:orderId",
+  "/orders/currentDate",
   isAuth,
-  order(),
+  userController.getOrderByCurrentDate
+);
+
+router.get(
+  "/orders/:orderId", order(),
   validate,
+  isAuth,
   userController.getOrderByOrderId
 );
+
+router.get(
+  "/orders/:Seq",validateSeqNumber(),validate,
+  isAuth,
+  userController.getOrderBySeq
+);
+
 router.post(
   "/login",
   driverLoginValidationRules(),

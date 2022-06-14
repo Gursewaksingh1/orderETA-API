@@ -2,7 +2,6 @@ const User = require("../model/_User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const Orders = require("../model/ordersModel");
-const { findOne } = require("../model/_User");
 
 //fetching all user's orders
 exports.getOrders = async (req, res) => {
@@ -10,13 +9,11 @@ exports.getOrders = async (req, res) => {
   let pageNo = req.query.page;
 
   try {
-    if (pageNo < 1 ||null || undefined) {
-      return res
-        .status(400)
-        .send({
-          status: "failed",
-          error: "page number must be a natural number",
-        });
+    if (pageNo < 1 || null || undefined) {
+      return res.status(400).send({
+        status: "failed",
+        error: "page number must be a natural number",
+      });
     }
     const orders = await Orders.find({ user_id: req.user.userId })
       .skip((pageNo - 1) * order_per_page)
@@ -28,15 +25,44 @@ exports.getOrders = async (req, res) => {
 };
 
 //fetching user order by order id
-exports.getOrderByOrderId =async (req,res) => {
+exports.getOrderByOrderId = async (req, res) => {
   try {
-    console.log(req.params,req.user);
-    const order = await  Orders.findOne({order_id: req.params.orderId})
+    const order = await Orders.findOne({ order_id: req.params.orderId });
     res.status(201).send({ status: "success", data: order });
   } catch (err) {
     res.status(400).send({ status: "failed", error: err });
   }
-}
+};
+//fetching user order by Seq
+exports.getOrderBySeq = async (req, res) => {
+  try {
+    const orders = await Orders.find({
+      user_id: req.user.userId,
+      Seq: req.params.Seq,
+    });
+    res.status(201).send({ status: "success", data: orders });
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+};
+
+//fetching user order by current Date
+exports.getOrderByCurrentDate = async (req, res) => {
+  try {
+    console.log(req.user.userId,);
+    //fetching reords which is eta only today
+    const orders = await Orders.find({user_id: req.user.userId,
+      $and: [
+        { eta: { $gte: new Date().setHours(0, 0, 0, 0) } },
+        { eta: { $lt: new Date().setHours(23, 59, 59, 0) } },
+      ],
+    });
+
+    res.status(201).send({ status: "success", data: orders });
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+};
 exports.login = async (req, res) => {
   const password = req.body.password;
 

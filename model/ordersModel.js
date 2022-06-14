@@ -16,6 +16,7 @@ const ordersSchema = new Schema({
        
         type:Array
     },
+   
     boxes_scanned_in:{
         type: Number,
     },
@@ -33,6 +34,26 @@ const ordersSchema = new Schema({
     },
     cod: {
         type:String
+    },
+    case_descriptions: {
+        
+        type: Array,
+    },
+    cases: {
+        
+        type: Number,
+    },
+    cell1: {
+        
+        type: String,
+    },
+    cell2: {
+        
+        type: String,
+    },
+    contained_boxes: {
+        
+        type: String,
     },
     datetime_created: {
         type:String,
@@ -60,52 +81,6 @@ const ordersSchema = new Schema({
     dropped_off_info:{
         type:Array
     },
-    eta_assign:{
-        type:String
-    },
-    eta:{
-        type:Date
-    },
-    Geocords: {
-        
-        type: Array,
-    },
-    boxes_scanned_in: {
-        
-        type: Number,
-    },
-    case_descriptions: {
-        
-        type: Array,
-    },
-    cases: {
-        
-        type: Number,
-    },
-    cell1: {
-        
-        type: String,
-    },
-    cell2: {
-        
-        type: String,
-    },
-    city: {
-        
-        type: String,
-    },
-    cod: {
-        
-        type: String,
-    },
-    collect: {
-        
-        type: String,
-    },
-    contained_boxes: {
-        
-        type: String,
-    },
     date_only_sent_to_device: {
         
         type: String,
@@ -113,14 +88,6 @@ const ordersSchema = new Schema({
     date_sent_to_device: {
         
         type: String,
-    },
-    datetime_created: {
-        
-        type: String,
-    },
-    deleted_from_device: {
-        
-        type: Number,
     },
     delivery_time_min: {
         
@@ -130,21 +97,21 @@ const ordersSchema = new Schema({
         
         type: String,
     },
-    driver_string: {
-        
-        type: String,
+    eta_assign:{
+        type:String
     },
-    dropped_off_info: {
-        
-        type: String,
+    eta:{
+        type:Date
     },
-    eta: {
-        
-        type: String,
-    },
+   
+    
     fname: {
         
         type: String,
+    },
+    Geocords: {
+        
+        type: Array,
     },
     initial_order_id: {
         

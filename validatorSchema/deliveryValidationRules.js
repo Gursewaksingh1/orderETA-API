@@ -85,7 +85,7 @@ const driverLoginValidationRules = () => {
 const orders = () => {
   return [
     check("page")
-      .isFloat({ min: 1, max: 10000 })
+      .isFloat({ min: 1, max: 100000 })
       .withMessage("page number must be greater then natural number"),
   ];
 };
@@ -94,9 +94,17 @@ const order = () => {
   return [
     check("orderId")
       .notEmpty()
-      .withMessage("orderId must be empty")
-      // .isDecimal()
-      // .withMessage("orderId must be number"),
+      .withMessage("orderId must be empty"),
+  ];
+};
+
+const validateSeqNumber = () => {
+  return [
+    check("Seq")
+      .notEmpty()
+      .withMessage("Seq must be empty")
+      .isDecimal()
+      .withMessage("Seq nust be a number"),
   ];
 };
 module.exports = {
@@ -105,4 +113,5 @@ module.exports = {
   driverLoginValidationRules,
   orders,
   order,
+  validateSeqNumber
 };
