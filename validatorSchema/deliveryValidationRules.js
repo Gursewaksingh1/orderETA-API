@@ -91,11 +91,7 @@ const orders = () => {
 };
 
 const order = () => {
-  return [
-    check("orderId")
-      .notEmpty()
-      .withMessage("orderId must be empty"),
-  ];
+  return [check("orderId").notEmpty().withMessage("orderId must be empty")];
 };
 
 const validateSeqNumber = () => {
@@ -107,11 +103,46 @@ const validateSeqNumber = () => {
       .withMessage("Seq nust be a number"),
   ];
 };
+
+const validate_driver_steps = () => {
+  return [
+    body("route_started")
+      .notEmpty()
+      .withMessage("route started must not be empty")
+      .isDate()
+      .withMessage("route started field must be in (yyyy-mm-dd) format"),
+    body("longitude")
+      .notEmpty()
+      .withMessage("longitude must not be empty")
+      .isDecimal()
+      .withMessage("longitude must be a number")
+      .isFloat({ min: -180, max: 180 })
+      .withMessage("longitude must be between -180 and 180"),
+    body("latitude")
+      .notEmpty()
+      .withMessage("latitude must not be empty")
+      .isDecimal()
+      .withMessage("latitude must be a number")
+      .isFloat({ min: -90, max: 90 })
+      .withMessage("longitude must be between -90 and 90"),
+    body("step_string")
+      .notEmpty()
+      .withMessage("step_string msut not empty")
+      .isString()
+      .withMessage("step_string should be a string"),
+    body("step_type")
+      .notEmpty()
+      .withMessage("step_type must not be empty")
+      .isNumeric()
+      .withMessage("step_type must be a number"),
+  ];
+};
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
   driverLoginValidationRules,
   orders,
   order,
-  validateSeqNumber
+  validateSeqNumber,
+  validate_driver_steps
 };

@@ -1,66 +1,45 @@
 const User = require("../model/_User");
+const DriverSteps = require("../model/driver_steps");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const Orders = require("../model/ordersModel");
 
-//fetching all user's orders
-exports.getOrders = async (req, res) => {
-  let order_per_page = 10;
-  let pageNo = req.query.page;
-
+exports.create_Driver_Steps_And_UpdateUser = async (req, res) => {
+  let { route_started, longitude, latitude, step_string, step_type } = req.body;
   try {
-    if (pageNo < 1 || null || undefined) {
-      return res.status(400).send({
-        status: "failed",
-        error: "page number must be a natural number",
-      });
-    }
-    const orders = await Orders.find({ user_id: req.user.userId })
-      .skip((pageNo - 1) * order_per_page)
-      .limit(order_per_page);
-    res.status(201).send({ status: "success", data: orders });
-  } catch (err) {
-    res.status(400).send({ status: "failed", error: err });
-  }
-};
-
-//fetching user order by order id
-exports.getOrderByOrderId = async (req, res) => {
-  try {
-    const order = await Orders.findOne({ order_id: req.params.orderId });
-    res.status(201).send({ status: "success", data: order });
-  } catch (err) {
-    res.status(400).send({ status: "failed", error: err });
-  }
-};
-//fetching user order by Seq
-exports.getOrderBySeq = async (req, res) => {
-  try {
-    const orders = await Orders.find({
+    //creating driver steps doc 
+    const driverSteps = new DriverSteps({
+      step_date: new Date(),
+      route_started: route_started,
+      step_geopoint: [longitude, latitude],
       user_id: req.user.userId,
-      Seq: req.params.Seq,
+      step_string: step_string,
+      step_type: step_type,
+      _created_at: new Date(),
+      _updated_at: new Date(),
     });
-    res.status(201).send({ status: "success", data: orders });
-  } catch (err) {
-    res.status(400).send({ status: "failed", error: err });
-  }
-};
+    driverSteps.save()
+    //updating User's latest action                                                                                                                                                                                                                                                        
+    const updateUser = await User.findByIdAndUpdate(
+      { _id: req.user.userId },
+      {
+        $set: {
+          latest_action: step_string,
+          last_location: [longitude, latitude],
+          original_route_started: route_started,
+          started_driving:route_started,
+          _updated_at: new Date()
+        },
+      }
+    );
 
-//fetching user order by current Date
-exports.getOrderByCurrentDate = async (req, res) => {
-  try {
-    console.log(req.user.userId,);
-    //fetching reords which is eta only today
-    const orders = await Orders.find({user_id: req.user.userId,
-      $and: [
-        { eta: { $gte: new Date().setHours(0, 0, 0, 0) } },
-        { eta: { $lt: new Date().setHours(23, 59, 59, 0) } },
-      ],
-    });
-
-    res.status(201).send({ status: "success", data: orders });
+    res
+      .status(201)
+      .send({
+        status: "success",
+        message: "user updated successfully and driver steps doc created",
+      });
   } catch (err) {
-    res.status(400).send({ status: "failed", error: err });
+    console.log(err);
   }
 };
 exports.login = async (req, res) => {

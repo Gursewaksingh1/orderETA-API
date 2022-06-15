@@ -177,8 +177,8 @@ const ordersSchema = new Schema({
         
         type: String,
     },
-    seq:{
-        type: Number, 
+    Seq:{
+        type: String, 
     },
     sequence: {
         

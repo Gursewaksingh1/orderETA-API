@@ -4,33 +4,9 @@ const router = express.Router();
 const validate = require("../validatorSchema/validateMiddleware");
 const {
   driverLoginValidationRules,
-  orders,
-  order,
-  validateSeqNumber
+  validate_driver_steps,
 } = require("../validatorSchema/deliveryValidationRules");
 const isAuth = require("../middleware/isAuth");
-
-router.get("/orders", orders(),
-validate, isAuth, userController.getOrders);
-
-router.get(
-  "/orders/currentDate",
-  isAuth,
-  userController.getOrderByCurrentDate
-);
-
-router.get(
-  "/orders/:orderId", order(),
-  validate,
-  isAuth,
-  userController.getOrderByOrderId
-);
-
-router.get(
-  "/orders/:Seq",validateSeqNumber(),validate,
-  isAuth,
-  userController.getOrderBySeq
-);
 
 router.post(
   "/login",
@@ -39,6 +15,14 @@ router.post(
   userController.login
 );
 
-router.post("/refreshtoken", orders(), validate, userController.refreshToken);
+router.post("/refreshtoken", userController.refreshToken);
 
+router.post(
+  "/driverSteps",
+  isAuth,
+  validate_driver_steps(),
+  validate,
+  userController
+  .create_Driver_Steps_And_UpdateUser
+);
 module.exports = router;

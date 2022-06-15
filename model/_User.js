@@ -5,6 +5,7 @@ const userSchema = new Schema({
         required:true,
          type:String
     },
+    _created_at:Date,
     Language: {
         required: true,
         type: Number,
@@ -41,6 +42,7 @@ const userSchema = new Schema({
         required: true,
         type: String,
     },
+    
     end_lat: {
         required: true,
         type: String,
@@ -137,6 +139,7 @@ const userSchema = new Schema({
         required: true,
         type: Number,
     },
+    _updated_at:Date,
     username: {
         required: true,
         type: String,
