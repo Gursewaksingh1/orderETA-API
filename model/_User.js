@@ -67,6 +67,8 @@ const userSchema = new Schema({
         required: true,
         type: Number,
     },
+    is_segueing:Number,
+    is_manager: Number,
     is_scanning: {
         required: true,
         type: Number,
@@ -119,6 +121,7 @@ const userSchema = new Schema({
         required:true,
         type:Array
     },
+    returns_to_address: String,
     service_time: {
         required: true,
         type: Number,

@@ -82,6 +82,12 @@ const driverLoginValidationRules = () => {
   ];
 };
 
+const validation_list_order = () => {
+  return [
+    body("orderId").notEmpty().withMessage("order id must not be empty")
+      .isDecimal().withMessage("order id must be a number")
+  ]
+}
 const orders = () => {
   return [
     check("page")

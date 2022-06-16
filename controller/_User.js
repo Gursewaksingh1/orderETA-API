@@ -3,6 +3,21 @@ const DriverSteps = require("../model/driver_steps");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
+exports.getUser = async(req,res) => {
+  let userId = req.user.userId
+  try {
+    //fetching user using user id
+    const user = await User.findOne({_id:userId})
+    res
+      .status(201)
+      .send({
+        status: "success",
+        data: user,
+      });
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+}
 exports.create_Driver_Steps_And_UpdateUser = async (req, res) => {
   let { route_started, longitude, latitude, step_string, step_type } = req.body;
   try {
@@ -39,7 +54,7 @@ exports.create_Driver_Steps_And_UpdateUser = async (req, res) => {
         message: "user updated successfully and driver steps doc created",
       });
   } catch (err) {
-    console.log(err);
+    res.status(401).send({ status: "failed", error: err });
   }
 };
 exports.login = async (req, res) => {

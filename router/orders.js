@@ -32,6 +32,6 @@ router.get(
 );
 
 router.get('/searchOrder',isAuth,ordersController.searchOrder)
-router.post('/listOrders',isAuth,ordersController.listOrders)
+router.post('/listOrders',validate,isAuth,ordersController.listOrders)
 
 module.exports = router;

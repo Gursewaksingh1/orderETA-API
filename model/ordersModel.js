@@ -16,7 +16,23 @@ const ordersSchema = new Schema({
        
         type:Array
     },
-   
+    boxes:[{
+        case_description:{
+            type:String
+        },
+        is_case: {
+            type:Number
+        },
+        number:{
+            type:Number
+        },
+       
+        status :{
+            description:{type: String},
+            driver_id:{type: String},
+            type:{type: String},
+        }
+    }],
     boxes_scanned_in:{
         type: Number,
     },

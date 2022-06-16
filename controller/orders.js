@@ -1,3 +1,5 @@
+const boxesModel = require("../model/boxesModel");
+const { findOne } = require("../model/boxesModel");
 const Boxes = require("../model/boxesModel");
 const Orders = require("../model/ordersModel");
 
@@ -85,29 +87,32 @@ exports.searchOrder = async (req, res) => {
 exports.listOrders = async (req, res) => {
   try {
     const orderId = req.body.orderId;
-    const driverId = req.body.driverId;
+    const driverId = req.user.userId;
+    let boxIds = [];
     //fetching orders according to id
 
-    let order = await Orders.find({ order_id: orderId });
-    if (order.length !== 0) {
-      let boxesIds = order[0].boxes;
-      //looping to update each box with driver id
-
-      for (i = 0; i < boxesIds.length; i++) {
-        data = await Boxes.findOneAndUpdate(
-          { _id: boxesIds[i].toHexString() },
-          { $set: { "status.driver_id": driverId } }
-        );
+    let order = await Orders.findOne({ order_id: orderId });
+    if (order.boxes.length !== 0) {
+      for(i=0;i<order.boxes.length;i++) {
+        boxIds.push(order.boxes[i]._id)
       }
+      //looping to update each box with driver id
+      await Orders.findOne({order_id:orderId})
+        .then(res => {
+          for (i = 0; i < boxIds.length; i++) {
+          res.boxes[i].status.driver_id = driverId
+          }
+          res.save()
+        })    
       res.status(200).send({
         status: "success",
         message: "orders have been assigned to related driver",
       });
-    } else {
+   } else {
       res
         .status(400)
         .send({ status: "failed", error: "please send valid order id" });
-    }
+   }
   } catch (err) {
     res.status(400).send({ status: "failed", error: err });
   }
