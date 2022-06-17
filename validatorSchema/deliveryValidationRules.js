@@ -2,16 +2,11 @@ const { body, check } = require("express-validator");
 
 const deliveryValidationRules = () => {
   return [
-    body("orderId")
+      body("step_string")
       .notEmpty()
-      .withMessage("orderId must not be empty")
-      .isNumeric()
-      .withMessage("orderId must be a numberic"),
-    body("boxId")
-      .notEmpty()
-      .withMessage("boxId must not be empty")
-      .isNumeric()
-      .withMessage("boxId must be a numberic"),
+      .withMessage("step_string msut not empty")
+      .isString()
+      .withMessage("step_string should be a string"),
     body("startLatitude")
       .notEmpty()
       .withMessage("startLatitude must not be empty")

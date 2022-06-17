@@ -13,7 +13,7 @@ router.post(
   isAuth,
   deliveryValidationRules(),
   validate,
-  deliveryController.postDelivery
+  deliveryController.startDelivery
 );
 router.put(
   "/",

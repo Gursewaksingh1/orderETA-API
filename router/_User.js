@@ -20,12 +20,5 @@ router.post(
 
 router.post("/refreshtoken", userController.refreshToken);
 
-router.post(
-  "/driverSteps",
-  isAuth,
-  validate_driver_steps(),
-  validate,
-  userController
-  .create_Driver_Steps_And_UpdateUser
-);
+
 module.exports = router;

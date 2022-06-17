@@ -1,5 +1,4 @@
 const User = require("../model/_User");
-const DriverSteps = require("../model/driver_steps");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
@@ -18,45 +17,6 @@ exports.getUser = async(req,res) => {
     res.status(400).send({ status: "failed", error: err });
   }
 }
-exports.create_Driver_Steps_And_UpdateUser = async (req, res) => {
-  let { route_started, longitude, latitude, step_string, step_type } = req.body;
-  try {
-    //creating driver steps doc 
-    const driverSteps = new DriverSteps({
-      step_date: new Date(),
-      route_started: route_started,
-      step_geopoint: [longitude, latitude],
-      user_id: req.user.userId,
-      step_string: step_string,
-      step_type: step_type,
-      _created_at: new Date(),
-      _updated_at: new Date(),
-    });
-    driverSteps.save()
-    //updating User's latest action                                                                                                                                                                                                                                                        
-    const updateUser = await User.findByIdAndUpdate(
-      { _id: req.user.userId },
-      {
-        $set: {
-          latest_action: step_string,
-          last_location: [longitude, latitude],
-          original_route_started: route_started,
-          started_driving:route_started,
-          _updated_at: new Date()
-        },
-      }
-    );
-
-    res
-      .status(201)
-      .send({
-        status: "success",
-        message: "user updated successfully and driver steps doc created",
-      });
-  } catch (err) {
-    res.status(401).send({ status: "failed", error: err });
-  }
-};
 exports.login = async (req, res) => {
   const password = req.body.password;
 

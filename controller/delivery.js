@@ -1,38 +1,76 @@
 const Delivery = require("../model/deliveryModel");
-
-exports.postDelivery = async (req, res) => {
+const User = require("../model/_User");
+const DriverSteps = require("../model/driver_steps");
+exports.startDelivery = async (req, res) => {
   let {
-    orderId,
-    boxId,
     startLatitude,
     startLongitude,
     endLatitude,
     endLongitude,
+    step_string,
   } = req.body;
+  let userId = req.user.userId;
   let today = new Date();
-  let currentDateAndTime = today.toLocaleString("en-GB");
+  let currentDateAndTime = today.toISOString();
   try {
-    const delivery = await Delivery({
-      order_id: orderId,
-      box_id: boxId,
-      start_lat: startLatitude,
-      start_lon: startLongitude,
-      end_lat: endLatitude,
-      end_lon: endLongitude,
-      delivery_date: currentDateAndTime.slice(0, 10),
-      delivery_time: currentDateAndTime.slice(12, 20),
-    });
-    result = await delivery.save();
-    if (result == undefined || null) {
-      res
-        .status(400)
-        .send({ staus: "failure", message: "record is not saved retry" });
+    //console.log(req.user.userId);
+    const user = await User.findOne({ _id: userId });
+console.log(user.end_lat == undefined || null || "1" &&user.end_lon ==undefined || null || "2");
+    // if(user.end_lat == undefined || null || 0 &&user.end_lon ==undefined || null || 0) {
+    if (!user.end_lat && !user.end_lon) {
+      console.log("vhgcvyjfcghvbj");
+      //if end latitude and longitude is not defined means delivery is just begins and update them
+      const user = await User.findOneAndUpdate(
+        { _id: userId },
+        {
+          $set: {
+            start_lat: startLatitude,
+            start_lon: startLongitude,
+            end_lat: endLatitude,
+            end_lon: endLongitude,
+            last_location: [startLongitude, startLatitude],
+            original_route_started:
+              currentDateAndTime.slice(0, 10) +
+              "-" +
+              currentDateAndTime.slice(12, 20),
+            started_driving:
+              currentDateAndTime.slice(0, 10) +
+              "-" +
+              currentDateAndTime.slice(12, 20),
+          },
+        }
+      );
+      //console.log(user);
     } else {
-      res.status(201).send({
-        staus: "success",
-        message: "delivery record created successfully",
-      });
+      const user = await User.findOneAndUpdate(
+        { _id: userId },
+        {
+          $set: {
+            last_location: [startLongitude, startLatitude],
+            latest_action: step_string,
+          },
+        }
+      );
     }
+    // creating first driver Step document
+    const driverSteps = new DriverSteps({
+      step_date: new Date(),
+      route_started:
+        currentDateAndTime.slice(0, 10) +
+        "-" +
+        currentDateAndTime.slice(12, 20),
+      step_geopoint: [startLongitude, startLatitude],
+      user_id: req.user.userId,
+      step_string: step_string,
+      step_type: 1,
+      _created_at: new Date(),
+      _updated_at: new Date(),
+    });
+    driverSteps.save();
+    res.status(201).send({
+      staus: "success",
+      message: "user gets the address of destination successfully",
+    });
   } catch (err) {
     res.status(400).send({ status: "failed", error: err });
   }
@@ -46,29 +84,26 @@ exports.updateDelivery = async (req, res) => {
       { $set: { end_lat: endLatitude, end_lon: endLongitude } }
     );
     res.status(201).send({
-        staus: "success",
-        message: "delivery record updated successfully",
-      });
+      staus: "success",
+      message: "delivery record updated successfully",
+    });
   } catch (err) {
     res.status(400).send({ status: "failed", error: err });
   }
 };
 
-exports.deleteDelivery = async(req,res) => {
-    try {
-        result  = await Delivery.deleteOne({_id:req.query.id})
-        if(result.deletedCount >0) {
-
-        res.status(200).send({
-            staus: "success",
-            message: "delivery record deleted successfully",
-          });
-        } else {
-            res
-              .status(400)
-              .send({ status: "failed", error: "please send valid id" });
-          }
-    } catch (err) {
-        res.status(400).send({ status: "failed", error: err });
+exports.deleteDelivery = async (req, res) => {
+  try {
+    result = await Delivery.deleteOne({ _id: req.query.id });
+    if (result.deletedCount > 0) {
+      res.status(200).send({
+        staus: "success",
+        message: "delivery record deleted successfully",
+      });
+    } else {
+      res.status(400).send({ status: "failed", error: "please send valid id" });
     }
-}
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+};

@@ -45,11 +45,11 @@ const userSchema = new Schema({
     
     end_lat: {
         required: true,
-        type: String,
+        type: Number,
     },
     end_lon: {
         required: true,
-        type: String,
+        type: Number,
     },
     eta_to_store: {
         required: true,
@@ -130,6 +130,8 @@ const userSchema = new Schema({
         required: true,
         type: String,
     },
+    start_lat:Number,
+    start_lon:Number,
     store_id: {
         required: true,
         type: Number,
