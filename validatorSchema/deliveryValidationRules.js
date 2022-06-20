@@ -2,7 +2,7 @@ const { body, check } = require("express-validator");
 
 const deliveryValidationRules = () => {
   return [
-      body("step_string")
+    body("step_string")
       .notEmpty()
       .withMessage("step_string msut not empty")
       .isString()
@@ -79,10 +79,13 @@ const driverLoginValidationRules = () => {
 
 const validation_list_order = () => {
   return [
-    body("orderId").notEmpty().withMessage("order id must not be empty")
-      .isDecimal().withMessage("order id must be a number")
-  ]
-}
+    body("orderId")
+      .notEmpty()
+      .withMessage("order id must not be empty")
+      .isDecimal()
+      .withMessage("order id must be a number"),
+  ];
+};
 const orders = () => {
   return [
     check("page")
@@ -138,6 +141,24 @@ const validate_driver_steps = () => {
       .withMessage("step_type must be a number"),
   ];
 };
+
+const validate_barCode = () => {
+  return [
+    body("barcode").custom((value) => {
+      if (value == undefined) {
+        throw Error("barcode is empty");
+      }
+
+      
+      let arr = value.split("/");
+      if (arr.length != 3) {
+        throw Error("barcode is incorrect");
+      }
+      console.log(arr);
+      return arr;
+    }),
+  ];
+};
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
@@ -145,5 +166,6 @@ module.exports = {
   orders,
   order,
   validateSeqNumber,
-  validate_driver_steps
+  validate_driver_steps,
+  validate_barCode,
 };

@@ -6,7 +6,8 @@ const validate = require("../validatorSchema/validateMiddleware");
 const {
   orders,
   order,
-  validateSeqNumber
+  validateSeqNumber,
+  validate_barCode
 } = require("../validatorSchema/deliveryValidationRules");
 
 router.get("/orders", orders(),
@@ -31,6 +32,7 @@ router.get(
   ordersController.getOrderBySeq
 );
 
+router.post("/confirmBarCode",isAuth,validate_barCode(),validate,ordersController.confirmBarCode)
 router.get('/searchOrder',isAuth,ordersController.searchOrder)
 router.post('/listOrders',validate,isAuth,ordersController.listOrders)
 

@@ -13,12 +13,10 @@ exports.startDelivery = async (req, res) => {
   let today = new Date();
   let currentDateAndTime = today.toISOString();
   try {
-    //console.log(req.user.userId);
+   // fetching user
     const user = await User.findOne({ _id: userId });
-console.log(user.end_lat == undefined || null || "1" &&user.end_lon ==undefined || null || "2");
-    // if(user.end_lat == undefined || null || 0 &&user.end_lon ==undefined || null || 0) {
-    if (!user.end_lat && !user.end_lon) {
-      console.log("vhgcvyjfcghvbj");
+
+    if (!user.end_lat || !user.end_lon) {
       //if end latitude and longitude is not defined means delivery is just begins and update them
       const user = await User.findOneAndUpdate(
         { _id: userId },
@@ -40,7 +38,6 @@ console.log(user.end_lat == undefined || null || "1" &&user.end_lon ==undefined 
           },
         }
       );
-      //console.log(user);
     } else {
       const user = await User.findOneAndUpdate(
         { _id: userId },

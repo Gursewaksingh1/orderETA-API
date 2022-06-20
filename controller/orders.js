@@ -35,7 +35,7 @@ exports.getOrderByOrderId = async (req, res) => {
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
   console.log(req.user.userId, req.params.Seq);
-  seq = req.params.Seq
+  seq = req.params.Seq;
   try {
     console.log("kjghdiousgadosgv");
     const orders = await Orders.find({
@@ -66,14 +66,36 @@ exports.getOrderByCurrentDate = async (req, res) => {
   }
 };
 
-exports.update_order_boxes = async (req, res) => {
-  let { orderId, desc, type } = req.body
+exports.confirmBarCode = async (req, res) => {
   try {
+    let val = req.body.barcode;
+    arr = val.split("/");
 
+    const order = await Orders.findOne({ store_id: arr[0], order_id: arr[1] });
+
+    if (order == null) {
+      return res
+        .status(400)
+        .send({ status: "failed", error: "incorrect barcode" });
+    }
+    if (order.total_boxes >= arr[2]) {
+      res.send({ status: "success", data: order });
+    } else {
+      return res
+        .status(400)
+        .send({ status: "failed", error: "incorrect barcode" });
+    }
+  } catch (err) {
+    res.status(400).send({ status: "failed", error: err });
+  }
+};
+exports.update_order_boxes = async (req, res) => {
+  let { orderId, desc, type } = req.body;
+  try {
   } catch (err) {
     console.log(err);
   }
-}
+};
 exports.searchOrder = async (req, res) => {
   try {
     const orderId = req.query.orderId;
@@ -102,16 +124,15 @@ exports.listOrders = async (req, res) => {
     let order = await Orders.findOne({ order_id: orderId });
     if (order.boxes.length !== 0) {
       for (i = 0; i < order.boxes.length; i++) {
-        boxIds.push(order.boxes[i]._id)
+        boxIds.push(order.boxes[i]._id);
       }
       //looping to update each box with driver id
-      await Orders.findOne({ order_id: orderId })
-        .then(res => {
-          for (i = 0; i < boxIds.length; i++) {
-            res.boxes[i].status.driver_id = driverId
-          }
-          res.save()
-        })
+      await Orders.findOne({ order_id: orderId }).then((res) => {
+        for (i = 0; i < boxIds.length; i++) {
+          res.boxes[i].status.driver_id = driverId;
+        }
+        res.save();
+      });
       res.status(200).send({
         status: "success",
         message: "orders have been assigned to related driver",
