@@ -10,8 +10,8 @@ const {
   validate_barCode
 } = require("../validatorSchema/deliveryValidationRules");
 
-router.get("/orders", orders(),
-validate, isAuth, ordersController.getOrders);
+router.get("/orders",isAuth, orders(),
+validate,  ordersController.getOrders);
 
 router.get(
   "/orders/currentDate",
@@ -20,20 +20,19 @@ router.get(
 );
 
 router.get(
-  "/order/:orderId", order(),
+  "/order/:orderId",isAuth, order(),
   validate,
-  isAuth,
+  
   ordersController.getOrderByOrderId
 );
 
 router.get(
-  "/orders/:Seq",validateSeqNumber(),validate,
-  isAuth,
+  "/orders/:Seq",isAuth,validateSeqNumber(),validate,
+  
   ordersController.getOrderBySeq
 );
 
 router.post("/confirmBarCode",isAuth,validate_barCode(),validate,ordersController.confirmBarCode)
-router.get('/searchOrder',isAuth,ordersController.searchOrder)
-router.post('/listOrders',validate,isAuth,ordersController.listOrders)
+router.post('/listOrders',isAuth,order(),validate,ordersController.listOrders)
 
 module.exports = router;

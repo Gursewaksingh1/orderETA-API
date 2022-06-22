@@ -5,12 +5,21 @@ const validate = require("../validatorSchema/validateMiddleware");
 
 const {
   driverLoginValidationRules,
-  validate_driver_steps,
+  validate_driver_actions,
 } = require("../validatorSchema/deliveryValidationRules");
 
 const isAuth = require("../middleware/isAuth");
 
-router.get("/",isAuth,userController.getUser)
+router.get("/", isAuth, userController.getUser);
+
+router.post(
+  "/userAction",
+  isAuth,
+  validate_driver_actions(),
+  validate,
+  userController.user_actions
+);
+router.post("/userImage",isAuth,userController.add_user_image)
 router.post(
   "/login",
   driverLoginValidationRules(),
@@ -19,6 +28,5 @@ router.post(
 );
 
 router.post("/refreshtoken", userController.refreshToken);
-
 
 module.exports = router;
