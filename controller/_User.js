@@ -2,8 +2,9 @@ const User = require("../model/_User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const DriverActions = require("../model/driver_actions");
-const UserImage = require("../model/user_image")
-let fs = require('fs');
+const UserImage = require("../model/user_image");
+
+
 
 exports.getUser = async (req, res) => {
   let userId = req.user.userId;
@@ -34,8 +35,8 @@ exports.getUser = async (req, res) => {
   }
 };
 
-exports.add_user_image = async(req,res) => {
-    let success_status, failed_status;
+exports.add_user_image = async (req, res) => {
+  let success_status, failed_status, image_err, image_size_err;
   try {
     // fetching user using user id
     const user = await User.findOne({ _id: req.user.userId });
@@ -43,29 +44,43 @@ exports.add_user_image = async(req,res) => {
     if (user.Language == 1) {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
+      image_err = process.env.IMAGE_ERR_ENGLISH;
+      image_size_err = process.env.IMAGE_SIZE_ERR_ENGLISH;
     } else if (user.Language == 2) {
       success_status = process.env.SUCCESS_STATUS_SPANISH;
       failed_status = process.env.FAILED_STATUS_SPANISH;
+      image_err = process.env.IMAGE_ERR_SPANISH;
+      image_size_err = process.env.IMAGE_SIZE_ERR_SPANISH;
     } else {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
+      image_err = process.env.IMAGE_ERR_ENGLISH;
+      image_size_err = process.env.IMAGE_SIZE_ERR_ENGLISH;
+    }
+    let userImage = await UserImage.findOne({ userId: req.user.userId });
+    if (userImage == null) {
+      //storing user image in new collection
+       userImage = new UserImage({
+        Image: req.file.buffer.toString("base64"),
+        userId: req.user.userId,
+        date: new Date(),
+      });
+      userImage.save();
+    } else {
+      userImage.Image = req.file.buffer.toString("base64")
+      userImage.save()
     }
 
-    //console.log(base64_encode(req.file.originalname))
-    console.log(req.file.buffer.toString('base64'));
-    //storing user image in new collection 
-    const userImage = new UserImage({
-      Image: req.file.buffer.toString('base64'),
-      userId: req.user.userId,
-      date: new Date()
-    })
-    userImage.save();
-    res.status(201).send({status:success_status,statusCode:201,data:userImage})
+    res
+      .status(201)
+      .send({ status: success_status, statusCode: 201, data: userImage });
   } catch (err) {
     console.log(err);
-    res.status(400).send({status:failed_status,statusCode:400,error:err})
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
 //user actions
 exports.user_actions = async (req, res) => {
   let { action, latitude, longitude } = req.body;
@@ -102,13 +117,11 @@ exports.user_actions = async (req, res) => {
         currentDateAndTime.slice(12, 20),
     });
     driver_action.save();
-    res
-      .status(201)
-      .send({
-        status: success_status,
-        statusCode: 201,
-        msg: user_action_message,
-      });
+    res.status(201).send({
+      status: success_status,
+      statusCode: 201,
+      msg: user_action_message,
+    });
   } catch (err) {
     res
       .status(400)
@@ -122,13 +135,11 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ username: req.body.username });
 
     if (user == undefined || null) {
-      res
-        .status(403)
-        .send({
-          status: "failed",
-          statusCode: 403,
-          error: "invaild username or password",
-        });
+      res.status(403).send({
+        status: "failed",
+        statusCode: 403,
+        error: "invaild username or password",
+      });
     } else {
       //comparing password using bcrypt
       bcrypt
@@ -139,7 +150,7 @@ exports.login = async (req, res) => {
             let token = jwt.sign(
               { userName: user.username, userId: user._id },
               process.env.SECRET,
-              { expiresIn: 60 * 5 }
+              { expiresIn: 6000000 * 5 }
             );
             //creating refresh token
             let refreshToken = jwt.sign(
@@ -147,22 +158,18 @@ exports.login = async (req, res) => {
               process.env.REFRESH_TOKEN_SECRET,
               { expiresIn: "24h" }
             );
-            res
-              .status(201)
-              .send({
-                status: "success",
-                statusCode: 201,
-                token,
-                refreshToken,
-              });
+            res.status(201).send({
+              status: "success",
+              statusCode: 201,
+              token,
+              refreshToken,
+            });
           } else {
-            res
-              .status(403)
-              .send({
-                status: "failed",
-                statusCode: 403,
-                msg: "invaild username or password",
-              });
+            res.status(403).send({
+              status: "failed",
+              statusCode: 403,
+              msg: "invaild username or password",
+            });
           }
         });
     }
@@ -196,9 +203,3 @@ exports.refreshToken = async (req, res) => {
   }
 };
 
-function base64_encode(file) {
-  // read binary data
-  var bitmap = fs.readFileSync(file);
-  // convert binary data to base64 encoded string
-  return new Buffer(bitmap).toString('base64');
-}

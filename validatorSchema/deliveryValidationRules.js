@@ -236,6 +236,33 @@ const validate_barCode = () => {
     }),
   ];
 };
+
+let validate_user_image = () => {
+  return [
+    body("image").custom(async (image , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      if(req.file ==undefined) {
+        if(user.Language ==1) {
+          throw Error(`image field must not be empty or Only .png, .jpg and .jpeg format allowed!`)
+        } else if (user.Language ==2) {
+          throw Error(`El campo de la imagen no debe estar vacío o ¡Solo se permiten los formatos .png, .jpg y .jpeg!`)
+        } else {
+          throw Error(`image field must not be empty or Only .png, .jpg and .jpeg format allowed!`)
+        }
+        
+      }
+      if(req.file.size> 2*1024*1024) {
+        if(user.Language ==1) {
+          throw Error(`image size must be less then or equal to 2 MB`)
+        } else if (user.Language ==2) {
+          throw Error(`el tamaño de la imagen debe ser inferior o igual a 2 MB`)
+        } else {
+          throw Error(`image size must be less then or equal to 2 MB`)
+        }
+      }
+    })
+  ]
+}
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
@@ -245,4 +272,5 @@ module.exports = {
   validateSeqNumber,
   validate_barCode,
   validate_driver_actions,
+  validate_user_image
 };
