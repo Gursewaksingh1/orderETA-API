@@ -13,11 +13,6 @@ const logout_Schema = new Schema({
         type:String,
         required:true
      },
-     user_IP_address:{
-        type:String,
-        required:true
-     }
-
 })
 
-module.exports = mongoose.model('logout', logout_Schema);
+module.exports = mongoose.model('_white_list', logout_Schema);

@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../model/_User");
+const User_Logout = require("../model/user_white_list");
 
 isAuth = async (req, res, next) => {
   const auth = req.headers["authorization"];
@@ -15,13 +15,14 @@ isAuth = async (req, res, next) => {
   }
   try {
     data = jwt.verify(token, process.env.SECRET);
-
-    user = await User.findOne({username:data.userName});
+ //comparing token with db's  token with userId
+    user = await User_Logout.findOne({userId:data.userId,token:token});
     if (user == null) {
       return res
         .status(403)
-        .send({ status: "failed", error: "the owner of this token does not exist" });
+        .send({ status: "failed", error: "the owner of this token has logout please re-login" });
     } else {
+
       req.user = data;
       next();
     }

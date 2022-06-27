@@ -9,8 +9,6 @@ exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
   try {
-    let ip = req.socket.remoteAddress
-    console.log(ip);
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
@@ -28,7 +26,6 @@ exports.getUser = async (req, res) => {
       status: success_status,
       statusCode: 201,
       data: user,
-      ip:ip
     });
   } catch (err) {
     res
@@ -62,15 +59,15 @@ exports.add_user_image = async (req, res) => {
     let userImage = await UserImage.findOne({ userId: req.user.userId });
     if (userImage == null) {
       //storing user image in new collection
-       userImage = new UserImage({
+      userImage = new UserImage({
         Image: req.file.buffer.toString("base64"),
         userId: req.user.userId,
         date: new Date(),
       });
       userImage.save();
     } else {
-      userImage.Image = req.file.buffer.toString("base64")
-      userImage.save()
+      userImage.Image = req.file.buffer.toString("base64");
+      userImage.save();
     }
 
     res
@@ -160,9 +157,13 @@ exports.login = async (req, res) => {
               process.env.REFRESH_TOKEN_SECRET,
               { expiresIn: "24h" }
             );
-              const user_logout = new User_Logout({
-                user
-              })
+            //creating user-logout-token white-list
+            const user_logout = new User_Logout({
+              userId: user._id,
+              token: token,
+              refreshToken,
+            });
+            user_logout.save();
             res.status(201).send({
               status: "success",
               statusCode: 201,
@@ -196,15 +197,45 @@ exports.refreshToken = async (req, res) => {
     }
     //decoding token
     decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-    let newToken = jwt.sign(
-      //generating new token
-      { userName: decoded.userName, userId: decoded.userId },
-      process.env.SECRET,
-      { expiresIn: 60 * 5 }
-    );
-    res.status(201).send({ status: "success", statusCode: 201, newToken });
+    //comparing refresh token with db's refresh token with userId
+    user = await User_Logout.findOne({
+      userId: decoded.userId,
+      refreshToken: token,
+    });
+    if (user == null) {
+      return res
+        .status(403)
+        .send({
+          status: "failed",
+          error: "the owner of this token has logout please re-login",
+        });
+    } else {
+      let newToken = jwt.sign(
+        //generating new token
+        { userName: decoded.userName, userId: decoded.userId },
+        process.env.SECRET,
+        { expiresIn: 60 * 5 }
+      );
+      user.token = newToken;
+      user.save();
+      res.status(201).send({ status: "success", statusCode: 201, newToken });
+    }
   } catch (err) {
     res.status(403).send({ status: "failed", statusCode: 403, error: err });
   }
 };
 
+exports.logout = async (req, res) => {
+  try {
+    //fetching token
+    const auth = req.headers["authorization"];
+    const token = auth && auth.split(" ")[1];
+    let userId = req.user.userId;
+    //removing doc after user logout
+    const user_logout = await User_Logout.findOneAndRemove({userId:userId,token:token})
+    res.status(200).send({status:"success",statusCode:200,data:user_logout})
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({status:"failed",statusCode:400,error:err})
+  }
+};

@@ -26,7 +26,7 @@ router.post(
   validate,
   userController.login
 );
-
+router.post("/logout",isAuth, userController.logout);
 router.post("/refreshtoken", userController.refreshToken);
 
 module.exports = router;
