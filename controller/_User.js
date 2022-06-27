@@ -9,6 +9,8 @@ exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
   try {
+    let ip = req.socket.remoteAddress
+    console.log(ip);
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
@@ -26,6 +28,7 @@ exports.getUser = async (req, res) => {
       status: success_status,
       statusCode: 201,
       data: user,
+      ip:ip
     });
   } catch (err) {
     res
