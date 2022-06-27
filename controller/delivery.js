@@ -1,4 +1,3 @@
-const Delivery = require("../model/deliveryModel");
 const User = require("../model/_User");
 const DriverSteps = require("../model/driver_steps");
 exports.startDelivery = async (req, res) => {

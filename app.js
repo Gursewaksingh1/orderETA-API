@@ -10,7 +10,6 @@ const orderRouter = require("./router/orders")
 const deliveryRouter = require("./router/delivery")
 dotenv.config();
 const _URI = process.env.MONGODB_URI 
-const maxSize = 1*1024*1024
 const fileFilter=(req, file, cb) => {
   if (
     file.mimetype == "image/png" ||

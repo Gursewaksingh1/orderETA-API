@@ -2,9 +2,8 @@ const User = require("../model/_User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const DriverActions = require("../model/driver_actions");
+const User_Logout = require("../model/user_white_list");
 const UserImage = require("../model/user_image");
-
-
 
 exports.getUser = async (req, res) => {
   let userId = req.user.userId;
@@ -150,7 +149,7 @@ exports.login = async (req, res) => {
             let token = jwt.sign(
               { userName: user.username, userId: user._id },
               process.env.SECRET,
-              { expiresIn: 6000000 * 5 }
+              { expiresIn: 60 * 5 }
             );
             //creating refresh token
             let refreshToken = jwt.sign(
@@ -158,6 +157,9 @@ exports.login = async (req, res) => {
               process.env.REFRESH_TOKEN_SECRET,
               { expiresIn: "24h" }
             );
+              const user_logout = new User_Logout({
+                user
+              })
             res.status(201).send({
               status: "success",
               statusCode: 201,

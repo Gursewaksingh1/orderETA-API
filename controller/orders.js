@@ -1,4 +1,3 @@
-const boxesModel = require("../model/boxesModel");
 const User = require("../model/_User");
 const Orders = require("../model/ordersModel");
 
