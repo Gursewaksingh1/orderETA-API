@@ -165,7 +165,7 @@ exports.login = async (req, res) => {
             });
             user_logout.save();
             res.status(201).send({
-              status: "success",
+              status: "successes",
               statusCode: 201,
               token,
               refreshToken,
