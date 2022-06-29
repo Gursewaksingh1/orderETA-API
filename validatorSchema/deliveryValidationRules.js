@@ -87,25 +87,13 @@ const driverLoginValidationRules = () => {
       .withMessage("username must be a string")
       .isLength({ min: 3, max: 30 })
       .withMessage("username must contain atleast three characters")
-      .custom(async (username , { req })=> {
-        if(username ==undefined) {
-          throw Error(`username must be defined`)
-        }
-        
-        return username
-      }),
+     ,
     body("password")
       .notEmpty()
       .withMessage("password must be not empty")
       .isLength({ min: 6, max: 30 })
       .withMessage("password must contain atleast six characters")
-      .custom(async (username , { req })=> {
-        if(password ==undefined) {
-          throw Error(`password must be defined`)
-        }
-        
-        return password
-      }),
+     ,
   ];
 };
 
