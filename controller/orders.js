@@ -49,7 +49,7 @@ exports.getOrders = async (req, res) => {
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
       //if orders array length is empty and page no is 1 then throw responce
-      if (orders.length == 0 &&pageNo==1) {
+      if (orders.length == 0 &&pageNo) {
         return res
           .status(404)
           .send({ status: failed_status,statusCode:404, msg: No_order_available});
