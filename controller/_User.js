@@ -161,6 +161,8 @@ exports.login = async (req, res) => {
   const password = req.body.password;
 
   try {
+   
+    
     const user = await User.findOne({ username: req.body.username });
 
     if (user == undefined || null) {
