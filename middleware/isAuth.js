@@ -9,7 +9,7 @@ isAuth = async (req, res, next) => {
     return res
       .status(403)
       .send({
-        status: "failed",
+        status: "failed",statusCode:403,
         error: "A token is required for authentication",
       });
   }
@@ -20,14 +20,14 @@ isAuth = async (req, res, next) => {
     if (user == null) {
       return res
         .status(403)
-        .send({ status: "failed", error: "the owner of this token has logout please re-login" });
+        .send({ status: "failed",statusCode:403, error: "the owner of this token has logout please re-login" });
     } else {
 
       req.user = data;
       next();
     }
   } catch (err) {
-    return res.status(403).send({ status: "failed", error: err });
+    return res.status(403).send({ status: "failed",statusCode:403, error: err });
   }
 };
 

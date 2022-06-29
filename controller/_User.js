@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const DriverActions = require("../model/driver_actions");
 const User_Logout = require("../model/user_white_list");
 const UserImage = require("../model/user_image");
-
+const Store = require("../model/store")
 exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
@@ -33,7 +33,37 @@ exports.getUser = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-
+exports.get_store_of_logined_user = async(req,res) => {
+  let userId = req.user.userId;
+  let success_status, failed_status;
+  let store
+  try {
+    // fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    }
+    store = await Store.findOne({store_id:user.store_id})
+    res.status(201).send({
+      status: success_status,
+      statusCode: 201,
+      data: store,
+    });
+  } catch (err) {
+    console.log(err);
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+};
 exports.add_user_image = async (req, res) => {
   let success_status, failed_status, image_err, image_size_err;
   try {
@@ -165,7 +195,7 @@ exports.login = async (req, res) => {
             });
             user_logout.save();
             res.status(201).send({
-              status: "successes",
+              status: "success",
               statusCode: 201,
               token,
               refreshToken,
@@ -226,16 +256,36 @@ exports.refreshToken = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
+  let success_status, failed_status
+  
+  let userId = req.user.userId;
   try {
+    let userLogout;
+    // fetching user using user id
+    const user = await User.findOne({ _id: req.user.userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      userLogout = process.env.USER_LOGOUT_ENGLISH
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      userLogout = process.env.USER_LOGOUT_SPANISH
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      userLogout = process.env.USER_LOGOUT_ENGLISH
+    }
     //fetching token
     const auth = req.headers["authorization"];
     const token = auth && auth.split(" ")[1];
-    let userId = req.user.userId;
+   
     //removing doc after user logout
     const user_logout = await User_Logout.findOneAndRemove({userId:userId,token:token})
-    res.status(200).send({status:"success",statusCode:200,data:user_logout})
+    res.status(200).send({status:success_status,statusCode:200,data:userLogout})
   } catch (err) {
     console.log(err);
-    res.status(400).send({status:"failed",statusCode:400,error:err})
+    res.status(400).send({status:failed_status,statusCode:400,error:err})
   }
 };

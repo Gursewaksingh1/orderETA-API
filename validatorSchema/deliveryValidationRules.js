@@ -1,7 +1,7 @@
 const { body, check } = require("express-validator");
 const User = require("../model/_User");
 
-
+//func for verifying is input empty and datatype
 function customVerify(val,userObj,datatype,datatype_spanish,fieldName,) {
   if(val ==undefined || val.length ==0 || typeof val !=datatype) {
     if(userObj.Language ==1) {
@@ -14,6 +14,7 @@ function customVerify(val,userObj,datatype,datatype_spanish,fieldName,) {
     
   }
 }
+//func for verifying length of input field
 function customVerifyLength(val,userObj,minLen,errorMsg,errorMsg_spanish) {
   if(val < minLen) {
     if(userObj.Language ==1) {
@@ -111,8 +112,18 @@ const orders = () => {
      check("page")
     
      .custom(async (page , { req })=> {
-      
+      var reg = /^\d+$/;  //checking if string only contains number or not
       const user = await User.findOne({_id:req.user.userId})
+      if(page ==undefined || page.length ==0 ||!reg.test(page)) {
+        if(user.Language ==1) {
+          throw Error(`page must not be empty and it should be number`)
+        } else if (user.Language ==2) {
+          throw Error(`page no debe estar vacío y debe ser una número`)
+        } else {
+          throw Error(`page must not be empty and it should be number`)
+        }
+        
+      }
       customVerifyLength(page,user,1,"page number must be natural number","page número debe ser número natural")
       return page
      }),

@@ -6,7 +6,7 @@ exports.getOrders = async (req, res) => {
   let order_per_page = 10;
   let pageNo = req.query.page;
 
-  let success_status,failed_status,wrong_page_no_msg
+  let success_status,failed_status,wrong_page_no_msg,No_order_available
   let userId = req.user.userId
   try {
   
@@ -17,15 +17,20 @@ exports.getOrders = async (req, res) => {
       success_status =  process.env.SUCCESS_STATUS_ENGLISH
       failed_status = process.env.FAILED_STATUS_ENGLISH
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH
+      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH
     } else if(user.Language ==2){
       success_status =  process.env.SUCCESS_STATUS_SPANISH 
       failed_status = process.env.FAILED_STATUS_SPANISH 
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_SPANISH
+      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH 
+
     } else {
       success_status =  process.env.SUCCESS_STATUS_ENGLISH
       failed_status = process.env.FAILED_STATUS_ENGLISH
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH
+      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH
     }
+    //if page number is incorrect
     if (pageNo < 1 || null || undefined) {
       return res.status(400).send({
         status: failed_status,
@@ -33,12 +38,24 @@ exports.getOrders = async (req, res) => {
         error: wrong_page_no_msg,
       });
     }
-    const orders = await Orders.find({ user_id: req.user.userId })
+  //getting user orders by userId and current date-time
+    const orders = await Orders.find({
+      user_id: req.user.userId,
+      $and: [
+        { eta: { $gte: new Date().setHours(0, 0, 0, 0) } },
+        { eta: { $lt: new Date().setHours(23, 59, 59, 0) } },
+      ],
+    })
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
+      //if orders array length is empty and page no is 1 then throw responce
+      if (orders.length == 0 &&pageNo==1) {
+        return res
+          .status(404)
+          .send({ status: failed_status,statusCode:404, msg: No_order_available});
+      }
     res.status(200).send({ status:success_status,statusCode:200, data: orders });
   } catch (err) {
-    console.log(err);
     res.status(400).send({ status: failed_status,statusCode:400, error: err });
   }
 };

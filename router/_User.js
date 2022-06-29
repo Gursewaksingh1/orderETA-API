@@ -11,7 +11,7 @@ const {
 const isAuth = require("../middleware/isAuth");
 
 router.get("/", isAuth, userController.getUser);
-
+router.get("/getStore",isAuth,userController.get_store_of_logined_user)
 router.post(
   "/userAction",
   isAuth,

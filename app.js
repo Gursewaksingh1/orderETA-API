@@ -36,7 +36,7 @@ app.use((req, res, next) => {
   app.use('/ordersAPI', orderRouter);
   app.use('/deliveryAPI', deliveryRouter);
   app.use((req,res,next) => {
-    res.status(404).send({status:"failed",statusCode:404,error:"wrong URL"})
+    res.status(404).send({status:"failed",statusCode:404,error:"wrong URL please check your URL and http method"})
   })
 mongoose.connect(_URI)
   .then(result => {
