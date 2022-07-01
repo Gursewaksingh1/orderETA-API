@@ -57,7 +57,7 @@ exports.getOrders = async (req, res) => {
         hidden: { $ne: 1 } ,
         deleted_from_device: { $ne: 1 } ,
         visited: { $ne: 1 } ,
-        driver_string: { $eq: 1 } ,
+        driver_string: { $eq: user.driver_string } ,
        // DeliveryDate: { $ne: moment().subtract(1, 'days').format("YYYY-MM-DD") } ,
         $and: [
           { date_sent_to_device: { $gte: date_sent_to_device_check } },
@@ -79,7 +79,7 @@ exports.getOrders = async (req, res) => {
       }
     }
   
-    const orders = await Orders.find({query})
+    const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
     //if orders array length is empty and page no is 1 then throw responce
@@ -162,7 +162,7 @@ exports.getOrderBySeq = async (req, res) => {
     const orders = await Orders.find({Seq:seq,
       $and: [
         { date_sent_to_device: { $gte:  moment().subtract(1, 'days').format("YYYY-MM-DD") } },
-        { datetime_created: { $lt:  moment(new Date()).add(1,'days').format("YYYY-MM-DD")} },
+        { datetime_created: { $lt:  moment().add(1, 'days').format("YYYY-MM-DD") } },
       ]
     })
     if (orders.length == 0) {
