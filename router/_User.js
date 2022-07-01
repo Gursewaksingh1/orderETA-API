@@ -23,7 +23,6 @@ router.post("/userImage",isAuth,validate_user_image(),validate, userController.a
 router.post(
   "/login",
   driverLoginValidationRules(),
-  validate,
   userController.login
 );
 router.post("/logout",isAuth, userController.logout);

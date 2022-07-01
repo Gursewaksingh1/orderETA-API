@@ -5,6 +5,7 @@ const DriverActions = require("../model/driver_actions");
 const User_Logout = require("../model/user_white_list");
 const UserImage = require("../model/user_image");
 const Store = require("../model/store")
+const {validationResult } = require('express-validator')
 exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
@@ -161,7 +162,17 @@ exports.login = async (req, res) => {
   const password = req.body.password;
 
   try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      const extractedErrors = []
+      errors.array().map(err => extractedErrors.push({ [err.param]: err.msg }))
    
+        return res.status(422).json({
+          status:"failed",
+          statusCode: 422,
+          errors: extractedErrors,
+        })
+    }
     
     const user = await User.findOne({ username: req.body.username });
 

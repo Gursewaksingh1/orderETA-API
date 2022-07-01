@@ -1,158 +1,208 @@
 const User = require("../model/_User");
 const Orders = require("../model/ordersModel");
-
+const Store = require("../model/store");
+const moment = require("moment")
 //fetching all user's orders
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
   let pageNo = req.query.page;
-
-  let success_status,failed_status,wrong_page_no_msg,No_order_available
-  let userId = req.user.userId
+  let success_status, failed_status, wrong_page_no_msg, No_order_available;
+  let userId = req.user.userId;
+  let query;
+   let date_sent_to_device_check = moment(new Date()).format("YYYY-MM-DD")
+   let datetime_created_check = moment(new Date()).add(1,'days').format("YYYY-MM-DD");
+  //code for getting yesterday date
+  //const previous = new Date(date.getTime());
+  //previous.setDate(date.getDate() - 1);
+//console.log();
   try {
-  
     //fetching user using user id
-    const user = await User.findOne({_id:userId})
+    const user = await User.findOne({ _id: userId });
     // checking for user language
-    if(user.Language ==1) {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH
-    } else if(user.Language ==2){
-      success_status =  process.env.SUCCESS_STATUS_SPANISH 
-      failed_status = process.env.FAILED_STATUS_SPANISH 
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_SPANISH
-      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH 
-
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
+      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_SPANISH;
+      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH;
     } else {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
+      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
     }
     //if page number is incorrect
     if (pageNo < 1 || null || undefined) {
       return res.status(400).send({
         status: failed_status,
-        statusCode:400,
+        statusCode: 400,
         error: wrong_page_no_msg,
       });
     }
-  //getting user orders by userId and current date-time
-    const orders = await Orders.find({
-      user_id: req.user.userId,
-      $and: [
-        { eta: { $gte: new Date().setHours(0, 0, 0, 0) } },
-        { eta: { $lt: new Date().setHours(23, 59, 59, 0) } },
-      ],
-    })
+    //fetching store doc of logged in user
+    const store = await Store({ store_id: user.store_id });
+    //checking if show_yesterdays_orders_too ==1
+    if (store.show_yesterdays_orders_too == 1) {
+      //code for getting yesterday date
+      date_sent_to_device_check = moment().subtract(1, 'days').format("YYYY-MM-DD")
+    }
+    if(user.load_in_late_orders_too != 1) { 
+     
+      query = {
+        store_id:user.store_id,
+        hidden: { $ne: 1 } ,
+        deleted_from_device: { $ne: 1 } ,
+        visited: { $ne: 1 } ,
+        driver_string: { $eq: 1 } ,
+       // DeliveryDate: { $ne: moment().subtract(1, 'days').format("YYYY-MM-DD") } ,
+        $and: [
+          { date_sent_to_device: { $gte: date_sent_to_device_check } },
+          { datetime_created: { $lt: datetime_created_check } },
+        ],
+      }
+    } else {
+     
+      query = {
+        store_id:user.store_id,
+        hidden: { $ne: 1 } ,
+        deleted_from_device: { $ne: 1 } ,
+        visited: { $ne: 1 } ,
+        driver_string: { $eq: user.driver_string } ,
+        DeliveryDate: { $ne: moment().subtract(1, 'days').format("YYYY-MM-DD") } ,
+        $and: [
+          { date_sent_to_device: { $gte: date_sent_to_device_check } }
+        ],
+      }
+    }
+  
+    const orders = await Orders.find({query})
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-      //if orders array length is empty and page no is 1 then throw responce
-      if (orders.length == 0 &&pageNo) {
-        return res
-          .status(404)
-          .send({ status: failed_status,statusCode:404, msg: No_order_available});
-      }
-    res.status(200).send({ status:success_status,statusCode:200, data: orders });
+    //if orders array length is empty and page no is 1 then throw responce
+    if (orders.length == 0 && pageNo) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        msg: No_order_available,
+      });
+    }
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, data: orders });
   } catch (err) {
-    res.status(400).send({ status: failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
 
 //fetching user order by order id
 exports.getOrderByOrderId = async (req, res) => {
-  let success_status,failed_status,error_msg
-  let userId = req.user.userId
+  let success_status, failed_status, error_msg;
+  let userId = req.user.userId;
   try {
     //fetching user using user id
-    const user = await User.findOne({_id:userId})
+    const user = await User.findOne({ _id: userId });
     // checking for user language
-    if(user.Language ==1) {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      error_msg = process.env.ERROR_MSG_ENGLISH
-    } else if(user.Language ==2){
-      success_status =  process.env.SUCCESS_STATUS_SPANISH 
-      failed_status = process.env.FAILED_STATUS_SPANISH 
-      error_msg = process.env.ERROR_MSG_SPANISH 
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      error_msg = process.env.ERROR_MSG_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      error_msg = process.env.ERROR_MSG_SPANISH;
     } else {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      error_msg = process.env.ERROR_MSG_ENGLISH
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      error_msg = process.env.ERROR_MSG_ENGLISH;
     }
 
     const order = await Orders.findOne({ order_id: req.params.orderId });
     if (order == null || undefined) {
       return res
         .status(404)
-        .send({ status: failed_status,statusCode:404, error: error_msg });
+        .send({ status: failed_status, statusCode: 404, error: error_msg });
     }
-    res.status(200).send({ status: success_status,statusCode:200, data: order });
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, data: order });
   } catch (err) {
-    res.status(400).send({ status: failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.Seq;
-  let success_status,failed_status,invaild_seq
-  let userId = req.user.userId
+  let success_status, failed_status, invaild_seq;
+  let userId = req.user.userId;
   try {
     //fetching user using user id
-    const user = await User.findOne({_id:userId})
+    const user = await User.findOne({ _id: userId });
     // checking for user language
-    if(user.Language ==1) {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      invaild_seq = process.env.INVAILD_SEQ_ENGLISH
-    } else if(user.Language ==2){
-      success_status =  process.env.SUCCESS_STATUS_SPANISH 
-      failed_status = process.env.FAILED_STATUS_SPANISH 
-      invaild_seq = process.env.INVAILD_SEQ_SPANISH 
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      invaild_seq = process.env.INVAILD_SEQ_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      invaild_seq = process.env.INVAILD_SEQ_SPANISH;
     } else {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      invaild_seq = process.env.INVAILD_SEQ_ENGLISH
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      invaild_seq = process.env.INVAILD_SEQ_ENGLISH;
     }
-    const orders = await Orders.find({
-      $and: [{ user_id: req.user.userId }, { Seq: seq.toString() }],
-    });
+    const orders = await Orders.find({Seq:seq,
+      $and: [
+        { date_sent_to_device: { $gte:  moment().subtract(1, 'days').format("YYYY-MM-DD") } },
+        { datetime_created: { $lt:  moment(new Date()).add(1,'days').format("YYYY-MM-DD")} },
+      ]
+    })
     if (orders.length == 0) {
-      return res
-        .status(404)
-        .send({
-          status:failed_status,
-          statusCode:404,
-          error: invaild_seq,
-        });
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invaild_seq,
+      });
     }
-    res.status(200).send({ status: success_status,statusCode:200, data: orders });
+
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, data: orders });
   } catch (err) {
-    res.status(400).send({ status: failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
 
 //fetching user order by current Date
 exports.getOrderByCurrentDate = async (req, res) => {
-  let success_status,failed_status,No_order_available
-  let userId = req.user.userId
+  let success_status, failed_status, No_order_available;
+  let userId = req.user.userId;
   try {
     //fetching user using user id
-    const user = await User.findOne({_id:userId})
+    const user = await User.findOne({ _id: userId });
     // checking for user language
-    if(user.Language ==1) {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH
-    } else if(user.Language ==2){
-      success_status =  process.env.SUCCESS_STATUS_SPANISH 
-      failed_status = process.env.FAILED_STATUS_SPANISH 
-      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH 
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH;
     } else {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
     }
     //fetching reords which is eta only today
     const orders = await Orders.find({
@@ -163,41 +213,46 @@ exports.getOrderByCurrentDate = async (req, res) => {
       ],
     });
     if (orders.length == 0) {
-      return res
-        .status(404)
-        .send({ status: failed_status,statusCode:404, msg: No_order_available});
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        msg: No_order_available,
+      });
     }
-    res.status(200).send({ status: success_status,statusCode:200, data: orders });
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, data: orders });
   } catch (err) {
-    res.status(400).send({ status: failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
 
 exports.confirmBarCode = async (req, res) => {
-  let success_status,failed_status,err_barcode
-  let userId = req.user.userId
+  let success_status, failed_status, err_barcode;
+  let userId = req.user.userId;
   try {
     //fetching user using user id
-    const user = await User.findOne({_id:userId})
+    const user = await User.findOne({ _id: userId });
     // checking for user language
-    if(user.Language ==1) {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      err_barcode = process.env.ERR_BARCODE_ENGLISH
-    } else if(user.Language ==2){
-      success_status =  process.env.SUCCESS_STATUS_SPANISH 
-      failed_status = process.env.FAILED_STATUS_SPANISH 
-      err_barcode = process.env.ERR_BARCODE_SPANISH 
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      err_barcode = process.env.ERR_BARCODE_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      err_barcode = process.env.ERR_BARCODE_SPANISH;
     } else {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      err_barcode = process.env.ERR_BARCODE_ENGLISH
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      err_barcode = process.env.ERR_BARCODE_ENGLISH;
     }
     let barcode = req.body.barcode;
     barcodeData = barcode.split("/");
 
     const order = await Orders.findOne({
-
       store_id: barcodeData[0],
       order_id: barcodeData[1],
     });
@@ -205,42 +260,46 @@ exports.confirmBarCode = async (req, res) => {
     if (order == null) {
       return res
         .status(400)
-        .send({ status: failed_status,statusCode:400, error: err_barcode});
+        .send({ status: failed_status, statusCode: 400, error: err_barcode });
     }
     if (order.total_boxes >= barcodeData[2]) {
-      res.status(200).send({ status: success_status,statusCode:200, data: order });
+      res
+        .status(200)
+        .send({ status: success_status, statusCode: 200, data: order });
     } else {
       return res
         .status(400)
-        .send({ status:failed_status,statusCode:400, error: err_barcode });
+        .send({ status: failed_status, statusCode: 400, error: err_barcode });
     }
   } catch (err) {
-    res.status(400).send({ status: failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
 
 exports.listOrders = async (req, res) => {
-  let success_status,failed_status,order_assigned_success,invaild_orderId
-  let userId = req.user.userId
+  let success_status, failed_status, order_assigned_success, invaild_orderId;
+  let userId = req.user.userId;
   try {
     //fetching user using user id
-    const user = await User.findOne({_id:userId})
+    const user = await User.findOne({ _id: userId });
     // checking for user language
-    if(user.Language ==1) {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
-      invaild_orderId = process.env.ERROR_MSG_ENGLISH
-    } else if(user.Language ==2){
-      success_status =  process.env.SUCCESS_STATUS_SPANISH 
-      failed_status = process.env.FAILED_STATUS_SPANISH 
-      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_SPANISH 
-      invaild_orderId = process.env.ERROR_MSG_SPANISH 
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH;
+      invaild_orderId = process.env.ERROR_MSG_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
+      invaild_orderId = process.env.ERROR_MSG_SPANISH;
     } else {
-      success_status =  process.env.SUCCESS_STATUS_ENGLISH
-      failed_status = process.env.FAILED_STATUS_ENGLISH
-      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
-      invaild_orderId = process.env.ERROR_MSG_ENGLISH
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH;
+      invaild_orderId = process.env.ERROR_MSG_ENGLISH;
     }
     const orderId = req.body.orderId;
     const driverId = req.user.userId;
@@ -248,34 +307,41 @@ exports.listOrders = async (req, res) => {
     //fetching orders according to id
 
     let order = await Orders.findOne({ order_id: orderId });
-  if(order ==null) {
-    return res.status(404).send({status:failed_status,statusCode:404,error:invaild_orderId})
-  }
+    if (order == null) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invaild_orderId,
+      });
+    }
     // getting all boxIds and store them in array
     if (order.boxes.length !== 0) {
       for (i = 0; i < order.boxes.length; i++) {
         boxIds.push(order.boxes[i]._id);
       }
       //looping to update each box with driver id
-     let updated_order =await Orders.findOne({ order_id: orderId })
-          for (i = 0; i < boxIds.length; i++) {
-            updated_order.boxes[i].status.driver_id = driverId;
-          }
-          updated_order.save();
+      let updated_order = await Orders.findOne({ order_id: orderId });
+      for (i = 0; i < boxIds.length; i++) {
+        updated_order.boxes[i].status.driver_id = driverId;
+      }
+      updated_order.save();
       res.status(200).send({
         status: success_status,
-        statusCode:200,
+        statusCode: 200,
         message: order_assigned_success,
-        data: updated_order.boxes
+        data: updated_order.boxes,
       });
-    
     } else {
-      res
-        .status(404)
-        .send({ status: failed_status,statusCode:404, error: invaild_orderId});
+      res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invaild_orderId,
+      });
     }
   } catch (err) {
     console.log(err);
-    res.status(400).send({ status: failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
