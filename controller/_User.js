@@ -34,6 +34,42 @@ exports.getUser = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+
+exports.updateUser = async(req,res) => {
+let userId = req.user.userId
+let success_status, failed_status,update_user_failed;
+try {
+  // fetching user using user id
+  const user = await User.findOne({ _id: userId });
+  // checking for user language
+  if (user.Language == 1) {
+    success_status = process.env.SUCCESS_STATUS_ENGLISH;
+    failed_status = process.env.FAILED_STATUS_ENGLISH;
+    update_user_failed =  process.env.UPDATE_USER_FAILED_ENGLISH
+  } else if (user.Language == 2) {
+    success_status = process.env.SUCCESS_STATUS_SPANISH;
+    failed_status = process.env.FAILED_STATUS_SPANISH;
+    update_user_failed =  process.env.UPDATE_USER_FAILED_SPANISH;
+  } else {
+    success_status = process.env.SUCCESS_STATUS_ENGLISH;
+    failed_status = process.env.FAILED_STATUS_ENGLISH;
+    update_user_failed =  process.env.UPDATE_USER_FAILED_ENGLISH
+  }
+  const update_User = await User.updateOne({_id:userId},{
+    previous_stop:req.body.previous_stop,
+    latest_action: req.body.latest_action,
+    next_stop:req.body.next_stop
+  })
+if(update_User.acknowledged ==true) {
+  res.status(200).send({status:success_status,statusCode:200,data:update_User})
+} else {
+  res.status(400).send({status:failed_status,statusCode:400,error:update_user_failed})
+}
+ 
+} catch (err) {
+  res.status(400).send({status:failed_status,statusCode:400,error:err})
+}
+}
 exports.get_store_of_logined_user = async(req,res) => {
   let userId = req.user.userId;
   let success_status, failed_status;

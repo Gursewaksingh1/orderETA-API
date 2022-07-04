@@ -5,12 +5,14 @@ const validate = require("../validatorSchema/validateMiddleware");
 
 const {
   driverLoginValidationRules,
-  validate_driver_actions,validate_user_image
+  validate_driver_actions,validate_user_image,
+  update_user_stops
 } = require("../validatorSchema/deliveryValidationRules");
 
 const isAuth = require("../middleware/isAuth");
 
 router.get("/", isAuth, userController.getUser);
+router.put("/update_user_stops",isAuth,update_user_stops(), validate,userController.updateUser)
 router.get("/getStore",isAuth,userController.get_store_of_logined_user)
 router.post(
   "/userAction",

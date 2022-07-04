@@ -16,7 +16,7 @@ function customVerify(val,userObj,datatype,datatype_spanish,fieldName,) {
 }
 //func for verifying length of input field
 function customVerifyLength(val,userObj,minLen,errorMsg,errorMsg_spanish) {
-  if(val < minLen) {
+  if(val.length < minLen) {
     if(userObj.Language ==1) {
       throw Error(`${errorMsg}`)
     } else if (userObj.Language ==2) {
@@ -26,6 +26,31 @@ function customVerifyLength(val,userObj,minLen,errorMsg,errorMsg_spanish) {
     }
     
   }
+}
+const update_user_stops = () => {
+  return [
+    body("previous_stop")
+    .custom(async (previous_stop , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(previous_stop,user,"string","cadena","previous_stop")
+      customVerifyLength(previous_stop,user,5,"previous_stop string length slould atleast 5 char long","La longitud de la cadena de parada anterior debe tener al menos 5 caracteres.")
+      return previous_stop
+    }),
+    body("latest_action")
+    .custom(async (latest_action , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(latest_action,user,"string","cadena","latest_action")
+      customVerifyLength(latest_action,user,5,"latest_action string length slould atleast 5 char long","La longitud de la cadena last_action debe tener al menos 5 caracteres.")
+      return latest_action
+    }),
+    body("next_stop")
+    .custom(async (next_stop , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(next_stop,user,"string","cadena","next_stop")
+      customVerifyLength(next_stop,user,5,"next_stop string length slould atleast 5 char long","La longitud de la cadena next_stop debe tener al menos 5 caracteres.")
+      return next_stop
+    }),
+  ]
 }
 const deliveryValidationRules = () => {
   return [
@@ -126,7 +151,15 @@ const orders = () => {
         }
         
       }
-      customVerifyLength(page,user,1,"page number must be natural number","page número debe ser número natural")
+      if(page<1) {
+        if(user.Language ==1) {
+          throw Error(`page number must be natural number`)
+        } else if (user.Language ==2) {
+          throw Error(`page número debe ser número natural`)
+        } else {
+          throw Error(`page number must be natural number`)
+        }
+      }
       return page
      }),
   ];
@@ -285,5 +318,6 @@ module.exports = {
   validateSeqNumber,
   validate_barCode,
   validate_driver_actions,
-  validate_user_image
+  validate_user_image,
+  update_user_stops
 };
