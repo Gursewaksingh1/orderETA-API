@@ -4,8 +4,192 @@ const bcrypt = require("bcryptjs");
 const DriverActions = require("../model/driver_actions");
 const User_Logout = require("../model/user_white_list");
 const UserImage = require("../model/user_image");
-const Store = require("../model/store")
-const {validationResult } = require('express-validator')
+const Store = require("../model/store");
+const { validationResult } = require("express-validator");
+
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - username
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: the auto-generated id
+ *         Language:
+ *           type: integer
+ *           description: prefered Language of the user
+ *         UUID:
+ *           type: integer
+ *           description: the auto-generated UUID
+ *         additional_maps:
+ *           type: string
+ *           description: additional_maps of the user
+ *         addresses_yet_to_visit:
+ *           type: number
+ *           description: addresses_yet_to_visit for delivery
+ *         app_version:
+ *           type: string
+ *           description: app_version of the user device
+ *         auto_scan:
+ *           type: number
+ *           description: auto_scan
+ *         distanceToHouses:
+ *           type: number
+ *           description: distanceToHouses of the delivery
+ *         driver_color:
+ *           type: string
+ *           description: the driver_color
+ *         driver_string:
+ *           type: string
+ *           description: driver_string of the user
+ *         end_lat:
+ *           type: number
+ *           description: the end_lat of user
+ *         end_lon:
+ *           type: number
+ *           description: end_lon of the user
+ *         eta_to_store:
+ *           type: date
+ *           description: eta_to_store for delivery
+ *         first_name:
+ *           type: string
+ *           description: first_name of the user
+ *         is_delivering:
+ *           type: number
+ *           description: is_delivering
+ *         is_segueing:
+ *           type: number
+ *           description: is_segueing
+ *         is_manager:
+ *           type: number
+ *           description: is_manager
+ *         is_scanning:
+ *           type: number
+ *           description: is_scanning or not
+ *         last_location:
+ *           type: array
+ *           description: the alast_location of user
+ *         last_name:
+ *           type: string
+ *           description: last_name of the user
+ *         latest_action:
+ *           type: string
+ *           description: latest_action for delivery
+ *         next_stop:
+ *           type: string
+ *           description: next_stop of the user
+ *         no_traffic:
+ *           type: number
+ *           description: no_traffic or not
+ *         orders_dropoff_method:
+ *           type: number
+ *           description: orders_dropoff_method of the delivery
+ *         orders_entry_method:
+ *           type: number
+ *           description: the orders_entry_method
+ *         original_route_started:
+ *           type: string
+ *           description: original_route_started of the user
+ *         phone:
+ *           type: number
+ *           description: the phone no of user
+ *         previous_stop:
+ *           type: string
+ *           description: previous_stop of the user
+ *         returns_to_address:
+ *           type: string
+ *           description: returns_to_address for delivery
+ *         service_time:
+ *           type: number
+ *           description: ervice_time of the user
+ *         started_driving:
+ *           type: string
+ *           description: started_driving
+ *         start_lat:
+ *           type: number
+ *           description: start_lat of the delivery
+ *         store_id:
+ *           type: number
+ *           description: the store_id of user
+ *         total_addresses_in_run:
+ *           type: number
+ *           description: total_addresses_in_run of the user
+ *         username:
+ *           type: string
+ *           description: the username of user
+ *         vehicle_type:
+ *           type: number
+ *           description: vehicle_type of the user
+ *       example:
+ *           _id: 56rhaj7
+ *           username: sunil
+ *           first_name: su
+ *           Language: 1
+ *           store_id: 24
+ *           driver_color: #008000
+ *           _hashed_password: $2a$12$ZYu6Wh.mzHzUZhAJC1rMbu.cTt2qwDkm8rGroRBp7kWr74fWHr/lW
+ *           _created_at: 2017-09-18T19:37:27.608Z
+ *           _updated_at: 2022-06-15T09:35:48.720Z
+ *           distanceToHouses: 500
+ *           service_time: 120
+ *           vehicle_type: 1
+ *           orders_entry_method: 3
+ *           driver_string: YURA
+ *           orders_dropoff_method: 2
+ *           latest_action: scanning done
+ *           UUID: 7E3A5094-18FE-4C33-A01F-602185822A1E
+ *           previous_stop: user left the store
+ *           started_driving: 2022-06-20-4:10:32.
+ *           next_stop: tarn taran
+ *           is_delivering: 0
+ *           addresses_yet_to_visit: 0
+ *           total_addresses_in_run: 8
+ *           last_location: [1,1]
+ *           eta_to_store: 2022-06-10T00:35:52.093Z
+ *           original_route_started: 2022-06-20-4:10:32.
+ *           auto_scan: 0
+ *           end_lon: 1
+ *           end_lat: 1
+ *           is_scanning: 1
+ *           app_version: 2.0.27,
+ *           additional_maps: 0
+ *           no_traffic: 1
+ *           start_lat: 1
+ *           start_lon: 1
+ */
+
+//endpoint for get user in swagger
+/**
+ * @swagger
+ * /userAPI:
+ *   get:
+ *     summary: Returns user details
+ *     tags: [user]
+ *     responses:
+ *       200:
+ *         description: Returns user details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *     security:
+ *       - bearerAuth: []
+ */
+
 exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
@@ -23,9 +207,9 @@ exports.getUser = async (req, res) => {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
     }
-    res.status(201).send({
+    res.status(200).send({
       status: success_status,
-      statusCode: 201,
+      statusCode: 200,
       data: user,
     });
   } catch (err) {
@@ -35,45 +219,57 @@ exports.getUser = async (req, res) => {
   }
 };
 
-exports.updateUser = async(req,res) => {
-let userId = req.user.userId
-let success_status, failed_status,update_user_failed;
-try {
-  // fetching user using user id
-  const user = await User.findOne({ _id: userId });
-  // checking for user language
-  if (user.Language == 1) {
-    success_status = process.env.SUCCESS_STATUS_ENGLISH;
-    failed_status = process.env.FAILED_STATUS_ENGLISH;
-    update_user_failed =  process.env.UPDATE_USER_FAILED_ENGLISH
-  } else if (user.Language == 2) {
-    success_status = process.env.SUCCESS_STATUS_SPANISH;
-    failed_status = process.env.FAILED_STATUS_SPANISH;
-    update_user_failed =  process.env.UPDATE_USER_FAILED_SPANISH;
-  } else {
-    success_status = process.env.SUCCESS_STATUS_ENGLISH;
-    failed_status = process.env.FAILED_STATUS_ENGLISH;
-    update_user_failed =  process.env.UPDATE_USER_FAILED_ENGLISH
+exports.updateUser = async (req, res) => {
+  let userId = req.user.userId;
+  let success_status, failed_status, update_user_failed;
+  try {
+    // fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      update_user_failed = process.env.UPDATE_USER_FAILED_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      update_user_failed = process.env.UPDATE_USER_FAILED_SPANISH;
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      update_user_failed = process.env.UPDATE_USER_FAILED_ENGLISH;
+    }
+    const update_User = await User.updateOne(
+      { _id: userId },
+      {
+        previous_stop: req.body.previous_stop,
+        latest_action: req.body.latest_action,
+        next_stop: req.body.next_stop,
+      }
+    );
+    if (update_User.acknowledged == true) {
+      res
+        .status(200)
+        .send({ status: success_status, statusCode: 200, data: update_User });
+    } else {
+      res
+        .status(400)
+        .send({
+          status: failed_status,
+          statusCode: 400,
+          error: update_user_failed,
+        });
+    }
+  } catch (err) {
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
-  const update_User = await User.updateOne({_id:userId},{
-    previous_stop:req.body.previous_stop,
-    latest_action: req.body.latest_action,
-    next_stop:req.body.next_stop
-  })
-if(update_User.acknowledged ==true) {
-  res.status(200).send({status:success_status,statusCode:200,data:update_User})
-} else {
-  res.status(400).send({status:failed_status,statusCode:400,error:update_user_failed})
-}
- 
-} catch (err) {
-  res.status(400).send({status:failed_status,statusCode:400,error:err})
-}
-}
-exports.get_store_of_logined_user = async(req,res) => {
+};
+exports.get_store_of_logined_user = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
-  let store
+  let store;
   try {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -88,7 +284,7 @@ exports.get_store_of_logined_user = async(req,res) => {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
     }
-    store = await Store.findOne({store_id:user.store_id})
+    store = await Store.findOne({ store_id: user.store_id });
     res.status(201).send({
       status: success_status,
       statusCode: 201,
@@ -194,22 +390,84 @@ exports.user_actions = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+
+
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     user_login:
+ *       type: object
+ *       required:
+ *         - username
+ *       properties:
+ *         username:
+ *           type: string
+ *           description: username of user
+ *         Language:
+ *           password: integer
+ *           description: password of user
+ *       example:
+ *           username: yurashm
+ *           password: 123456
+ */ 
+/**
+ * @swagger
+ * /userAPI/login:
+ *   post:
+ *     summary: update user previous stop and next with latest action
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/user_login'
+ *     responses:
+ *       200:
+ *         description: user login successfull
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       403:
+ *         description: invalid username and password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/user_login'
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/user_login'
+ */
+
 exports.login = async (req, res) => {
   const password = req.body.password;
 
   try {
-    const errors = validationResult(req)
+    const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      const extractedErrors = []
-      errors.array().map(err => extractedErrors.push({ [err.param]: err.msg }))
-   
-        return res.status(422).json({
-          status:"failed",
-          statusCode: 422,
-          errors: extractedErrors,
-        })
+      const extractedErrors = [];
+      errors
+        .array()
+        .map((err) => extractedErrors.push({ [err.param]: err.msg }));
+
+      return res.status(422).json({
+        status: "failed",
+        statusCode: 422,
+        errors: extractedErrors,
+      });
     }
-    
+
     const user = await User.findOne({ username: req.body.username });
 
     if (user == undefined || null) {
@@ -228,7 +486,7 @@ exports.login = async (req, res) => {
             let token = jwt.sign(
               { userName: user.username, userId: user._id },
               process.env.SECRET,
-              { expiresIn: 60 * 5 }
+              { expiresIn: 60 * 60 * 12 }
             );
             //creating refresh token
             let refreshToken = jwt.sign(
@@ -243,9 +501,9 @@ exports.login = async (req, res) => {
               refreshToken,
             });
             user_logout.save();
-            res.status(201).send({
+            res.status(200).send({
               status: "success",
-              statusCode: 201,
+              statusCode: 200,
               token,
               refreshToken,
             });
@@ -282,12 +540,10 @@ exports.refreshToken = async (req, res) => {
       refreshToken: token,
     });
     if (user == null) {
-      return res
-        .status(403)
-        .send({
-          status: "failed",
-          error: "the owner of this token has logout please re-login",
-        });
+      return res.status(403).send({
+        status: "failed",
+        error: "the owner of this token has logout please re-login",
+      });
     } else {
       let newToken = jwt.sign(
         //generating new token
@@ -304,9 +560,33 @@ exports.refreshToken = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /userAPI/logout:
+ *   post:
+ *     summary: user logout
+ *     tags: [user]
+ *     responses:
+ *       200:
+ *         description: user logout successfull
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       403:
+ *         description: invaild/empty token 
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
 exports.logout = async (req, res) => {
-  let success_status, failed_status
-  
+  let success_status, failed_status;
+
   let userId = req.user.userId;
   try {
     let userLogout;
@@ -316,25 +596,32 @@ exports.logout = async (req, res) => {
     if (user.Language == 1) {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
-      userLogout = process.env.USER_LOGOUT_ENGLISH
+      userLogout = process.env.USER_LOGOUT_ENGLISH;
     } else if (user.Language == 2) {
       success_status = process.env.SUCCESS_STATUS_SPANISH;
       failed_status = process.env.FAILED_STATUS_SPANISH;
-      userLogout = process.env.USER_LOGOUT_SPANISH
+      userLogout = process.env.USER_LOGOUT_SPANISH;
     } else {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
-      userLogout = process.env.USER_LOGOUT_ENGLISH
+      userLogout = process.env.USER_LOGOUT_ENGLISH;
     }
     //fetching token
     const auth = req.headers["authorization"];
     const token = auth && auth.split(" ")[1];
-   
+
     //removing doc after user logout
-    const user_logout = await User_Logout.findOneAndRemove({userId:userId,token:token})
-    res.status(200).send({status:success_status,statusCode:200,data:userLogout})
+    const user_logout = await User_Logout.findOneAndRemove({
+      userId: userId,
+      token: token,
+    });
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, data: userLogout });
   } catch (err) {
     console.log(err);
-    res.status(400).send({status:failed_status,statusCode:400,error:err})
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };

@@ -29,21 +29,21 @@ function customVerifyLength(val,userObj,minLen,errorMsg,errorMsg_spanish) {
 }
 const update_user_stops = () => {
   return [
-    body("previous_stop")
+    body("previous_stop").trim()
     .custom(async (previous_stop , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(previous_stop,user,"string","cadena","previous_stop")
       customVerifyLength(previous_stop,user,5,"previous_stop string length slould atleast 5 char long","La longitud de la cadena de parada anterior debe tener al menos 5 caracteres.")
       return previous_stop
     }),
-    body("latest_action")
+    body("latest_action").trim()
     .custom(async (latest_action , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(latest_action,user,"string","cadena","latest_action")
       customVerifyLength(latest_action,user,5,"latest_action string length slould atleast 5 char long","La longitud de la cadena last_action debe tener al menos 5 caracteres.")
       return latest_action
     }),
-    body("next_stop")
+    body("next_stop").trim()
     .custom(async (next_stop , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(next_stop,user,"string","cadena","next_stop")
@@ -54,31 +54,31 @@ const update_user_stops = () => {
 }
 const deliveryValidationRules = () => {
   return [
-    body("step_string")
+    body("step_string").trim()
     .custom(async (stepString , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(stepString,user,"string","cadena","step_string")
       return stepString
     }),
-    body("startLatitude")
+    body("startLatitude").trim()
     .custom(async (startLatitude , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(startLatitude,user,"number","número","startLatitude")
       return startLatitude
     }),
-    body("startLongitude")
+    body("startLongitude").trim()
     .custom(async (startLongitude , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(startLongitude,user,"number","número","startLongitude")
       return startLongitude
     }),
-    body("endLatitude")
+    body("endLatitude").trim()
     .custom(async (endLatitude , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(endLatitude,user,"number","número","endLatitude")
       return endLatitude
     }),
-    body("endLongitude")
+    body("endLongitude").trim()
     .custom(async (endLongitude , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(endLongitude,user,"number","número","endLongitude")
@@ -89,13 +89,13 @@ const deliveryValidationRules = () => {
 
 const updateDeliveryValidationRules = () => {
   return [
-    body("endLatitude")
+    body("endLatitude").trim()
     .custom(async (endLatitude , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(endLatitude,user,"number","número","endLatitude")
       return endLatitude
     }),
-    body("endLongitude")
+    body("endLongitude").trim()
     .custom(async (endLongitude , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(endLongitude,user,"number","número","endLongitude")
@@ -107,6 +107,7 @@ const driverLoginValidationRules = () => {
   return [
     body("username")
       .notEmpty()
+      .trim()
       .withMessage("username must be not empty")
       .isString()
       .withMessage("username must be a string")
@@ -115,6 +116,7 @@ const driverLoginValidationRules = () => {
      ,
     body("password")
       .notEmpty()
+      .trim()
       .withMessage("password must be not empty")
       .isLength({ min: 6, max: 30 })
       .withMessage("password must contain atleast six characters")
@@ -137,8 +139,9 @@ const orders = () => {
   return [
     
      check("page")
-    
+     .trim()
      .custom(async (page , { req })=> {
+  
       var reg = /^\d+$/;  //checking if string only contains number or not
       const user = await User.findOne({_id:req.user.userId})
       if(page ==undefined || page.length ==0 ||!reg.test(page)) {
@@ -166,7 +169,7 @@ const orders = () => {
 };
 
 const order = () => {
-  return [check("orderId") .custom(async (orderId , { req })=> {
+  return [check("orderId").trim() .custom(async (orderId , { req })=> {
     const user = await User.findOne({_id:req.user.userId})
     customVerifyLength(orderId,user,1,"orderId must not be empty","orderId No debe estar vacía")
     
@@ -176,7 +179,7 @@ const order = () => {
 
 const validateSeqNumber = () => {
   return [
-    check("Seq")
+    check("Seq").trim()
     .custom(async (Seq , { req })=> {
       var reg = /^\d+$/;  //checking if string only contains number or not 
       const user = await User.findOne({_id:req.user.userId})
@@ -230,21 +233,21 @@ const validateSeqNumber = () => {
 // };
 const validate_driver_actions = () => {
   return [
-    body("action")
+    body("action").trim()
     .custom(async (action , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       customVerify(action,user,"string","cuerda","action")
       customVerifyLength(action,user,5,"action length should atleast 5 char long","action la longitud debe tener al menos 5 caracteres de largo")
       return action
     }),
-      body("latitude")
+      body("latitude").trim()
       .custom(async (latitude , { req })=> {
         const user = await User.findOne({_id:req.user.userId})
         customVerify(latitude,user,"number","número","latitude")
        
         return latitude
       }),
-      body("longitude")
+      body("longitude").trim()
       .custom(async (longitude , { req })=> {
         const user = await User.findOne({_id:req.user.userId})
         customVerify(longitude,user,"number","número","longitude")
@@ -255,7 +258,7 @@ const validate_driver_actions = () => {
 };
 const validate_barCode = () => {
   return [
-    body("barcode").custom(async (barcode , { req })=> {
+    body("barcode").trim().custom(async (barcode , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
       if(barcode ==undefined) {
         if(user.Language ==1) {

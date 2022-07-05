@@ -13,6 +13,9 @@ const {
 router.get("/orders",isAuth, orders(),
 validate,  ordersController.getOrders);
 
+router.get("/ordersByScan",isAuth, orders(),
+validate,  ordersController.get_orders_by_scan);
+
 router.get(
   "/orders/currentDate",
   isAuth,

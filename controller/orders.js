@@ -1,7 +1,44 @@
 const User = require("../model/_User");
 const Orders = require("../model/ordersModel");
 const Store = require("../model/store");
-const moment = require("moment")
+const moment = require("moment");
+
+/**
+ * @swagger
+ * /ordersAPI/orders?page:
+ *   get:
+ *     summary: return orders
+ *     tags: [orders]
+ *     parameters:
+ *      - in: query
+ *        name: page
+ *        schema:
+ *          type: number
+ *        required: true
+ *        description: page number
+ *     responses:
+ *       200:
+ *         description: return orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+  *       422:
+ *         description: validatio error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
 //fetching all user's orders
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
@@ -9,8 +46,12 @@ exports.getOrders = async (req, res) => {
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
   let query;
-   let date_sent_to_device_check = moment(new Date()).format(process.env.YYYYMMDD)
-   let datetime_created_check = moment(new Date()).add(1,'days').format(process.env.YYYYMMDD);
+  let date_sent_to_device_check = moment(new Date()).format(
+    process.env.YYYYMMDD
+  );
+  let datetime_created_check = moment(new Date())
+    .add(1, "days")
+    .format(process.env.YYYYMMDD);
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -42,42 +83,44 @@ exports.getOrders = async (req, res) => {
     //fetching store doc of logged in user
     const store = await Store({ store_id: user.store_id });
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
-    if(store !=null ||undefined) {
+    if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
         //code for getting yesterday date
-        date_sent_to_device_check = moment().subtract(1, 'days').format(process.env.YYYYMMDD)
+        date_sent_to_device_check = moment()
+          .subtract(1, "days")
+          .format(process.env.YYYYMMDD);
       }
     }
-   
-    if(user.load_in_late_orders_too != 1) { 
-     
+
+    if (user.load_in_late_orders_too != 1) {
       query = {
-        store_id:user.store_id,
-        hidden: { $ne: 1 } ,
-        deleted_from_device: { $ne: 1 } ,
-        visited: { $ne: 1 } ,
-        driver_string: { $eq: user.driver_string } ,
-        DeliveryDate: { $ne: moment().subtract(1, 'days').format(process.env.YYYYMMDD) } ,
+        store_id: user.store_id,
+        hidden: { $ne: 1 },
+        deleted_from_device: { $ne: 1 },
+        visited: { $ne: 1 },
+        driver_string: { $eq: user.driver_string },
+        DeliveryDate: {
+          $ne: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+        },
         $and: [
           { date_sent_to_device: { $gte: date_sent_to_device_check } },
           { datetime_created: { $lt: datetime_created_check } },
         ],
-      }
+      };
     } else {
-     
       query = {
-        store_id:user.store_id,
-        hidden: { $ne: 1 } ,
-        deleted_from_device: { $ne: 1 } ,
-        visited: { $ne: 1 } ,
-        driver_string: { $eq: user.driver_string } ,
-        DeliveryDate: { $ne: moment().subtract(1, 'days').format(process.env.YYYYMMDD) } ,
-        $and: [
-          { date_sent_to_device: { $gte: date_sent_to_device_check } }
-        ],
-      }
+        store_id: user.store_id,
+        hidden: { $ne: 1 },
+        deleted_from_device: { $ne: 1 },
+        visited: { $ne: 1 },
+        driver_string: { $eq: user.driver_string },
+        DeliveryDate: {
+          $ne: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+        },
+        $and: [{ date_sent_to_device: { $gte: date_sent_to_device_check } }],
+      };
     }
-  
+
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
@@ -98,12 +141,52 @@ exports.getOrders = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-exports.get_orders_by_scan = async (req,res) => {
+
+/**
+ * @swagger
+ * /ordersAPI/ordersByScan?page:
+ *   get:
+ *     summary: return orders
+ *     tags: [orders]
+ *     parameters:
+ *      - in: query
+ *        name: page
+ *        schema:
+ *          type: number
+ *        required: true
+ *        description: page number
+ *     responses:
+ *       200:
+ *         description: return orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+  *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
+exports.get_orders_by_scan = async (req, res) => {
   let order_per_page = 10;
   let pageNo = req.query.page;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
-  let datetime_created_check = moment(new Date()).add(1,'days').format(process.env.YYYYMMDD);
+  let order_length
+  let datetime_created_check = moment()
+    .subtract(1, "days")
+    .format(process.env.YYYYMMDD);
 
   try {
     //fetching user using user id
@@ -125,30 +208,60 @@ exports.get_orders_by_scan = async (req,res) => {
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
       No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
     }
-
+   //if page number is incorrect
+   if (pageNo < 1 || null || undefined) {
+    return res.status(400).send({
+      status: failed_status,
+      statusCode: 400,
+      error: wrong_page_no_msg,
+    });
+  }
     //fetching store doc of logged in user
     const store = await Store({ store_id: user.store_id });
-
-    if(user.load_in_late_orders_too != 1) { 
-      datetime_created_check =  moment(new Date()).add(1,'days').format(process.env.YYYYMMDD);
+    //query need to run on db from getting orders
+    query = {
+      store_id: user.store_id,
+      visited: { $ne: 1 },
+      route_started: { $eq: null },
+      driver_string: { $eq: null },
+      datetime_created: { $gte: datetime_created_check },
+    };
+//change in datetime_created if load_in_late_orders_too is not eq to one
+    if (user.load_in_late_orders_too != 1) {
+      datetime_created_check = moment(new Date())
+        .add(1, "days")
+        .format(process.env.YYYYMMDD);
       query = {
-        store_id:user.store_id,
-        hidden: { $ne: 1 } ,
-        deleted_from_device: { $ne: 1 } ,
-        visited: { $ne: 1 } ,
-        driver_string: { $eq: user.driver_string } ,
-        DeliveryDate: { $ne: moment().subtract(1, 'days').format(process.env.YYYYMMDD) } ,
-        $and: [
-          { date_sent_to_device: { $gte: date_sent_to_device_check } },
-          { datetime_created: { $gte:  datetime_created_check } },
-        ],
-      }
+        store_id: user.store_id,
+        visited: { $ne: 1 },
+        route_started: { $eq: null },
+        driver_string: { $eq: null },
+        datetime_created: { $lt: datetime_created_check },
+      };
     }
-  }
-  catch(err) {
 
+    const orders = await Orders.find(query)
+      .skip((pageNo - 1) * order_per_page)
+      .limit(order_per_page);
+
+      order_length = orders.length
+    //if orders array length is empty and page no is 1 then throw responce
+    if (order_length == 0 && pageNo) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        msg: No_order_available,
+      });
+    }
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, order_length, data: orders });
+  } catch (err) {
+    res
+    .status(400)
+    .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
 //fetching user order by order id
 exports.getOrderByOrderId = async (req, res) => {
   let success_status, failed_status, error_msg;
@@ -186,6 +299,44 @@ exports.getOrderByOrderId = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+
+/**
+ * @swagger
+ * /ordersAPI/orders/{Seq}:
+ *   get:
+ *     summary: return orders
+ *     tags: [orders]
+ *     parameters:
+ *      - in: path
+ *        name: Seq
+ *        schema:
+ *          type: number
+ *        required: true
+ *        description: Seq number
+ *     responses:
+ *       200:
+ *         description: return orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+  *       422:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
+
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.Seq;
@@ -208,12 +359,21 @@ exports.getOrderBySeq = async (req, res) => {
       failed_status = process.env.FAILED_STATUS_ENGLISH;
       invaild_seq = process.env.INVAILD_SEQ_ENGLISH;
     }
-    const orders = await Orders.find({Seq:seq,
+    const orders = await Orders.find({
+      Seq: seq,
       $and: [
-        { datetime_created: { $gte:  moment().subtract(1, 'days').format(process.env.YYYYMMDD) } },
-        { datetime_created: { $lt:  moment().add(1, 'days').format(process.env.YYYYMMDD) } },
-      ]
-    })
+        {
+          datetime_created: {
+            $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+          },
+        },
+        {
+          datetime_created: {
+            $lt: moment().add(1, "days").format(process.env.YYYYMMDD),
+          },
+        },
+      ],
+    });
     if (orders.length == 0) {
       return res.status(404).send({
         status: failed_status,
@@ -371,8 +531,8 @@ exports.listOrders = async (req, res) => {
       //looping to update each box with driver id
       let updated_order = await Orders.findOne({ order_id: orderId });
       for (i = 0; i < boxIds.length; i++) {
-        updated_order.boxes[i].status.type = type
-        updated_order.boxes[i].status.description = description
+        updated_order.boxes[i].status.type = type;
+        updated_order.boxes[i].status.description = description;
         updated_order.boxes[i].status.driver_id = driverId;
       }
       updated_order.save();

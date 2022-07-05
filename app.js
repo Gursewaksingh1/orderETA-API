@@ -8,6 +8,8 @@ const multer = require("multer");
 const userRouter = require("./router/_User")
 const orderRouter = require("./router/orders")
 const deliveryRouter = require("./router/delivery")
+const swaggerUI = require("swagger-ui-express")
+const swaggerJsdoc = require("swagger-jsdoc")
 dotenv.config();
 const _URI = process.env.MONGODB_URI 
 const fileFilter=(req, file, cb) => {
@@ -21,7 +23,40 @@ const fileFilter=(req, file, cb) => {
     cb(null, false);
   }
 }
+const options = {
 
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'order-ETA',
+      version: '1.0.0',
+    },
+    servers:[{
+      url:"https://order-eta-app.herokuapp.com/"
+    }
+     
+    ],
+     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "apiKey",
+          name: "Authorization",
+          scheme: "Authorization",
+          in: "header",
+        },
+      },
+    },
+    bearerAuth: {
+      type: "https",
+      scheme: "bearer",
+    },
+
+  },
+  apis: ['./controller/*.js'], // files containing annotations as above
+};
+const swaggerSpac = swaggerJsdoc(options)
+
+app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpac));
 app.use(bodyparser.urlencoded({extended: false }));
 app.use(express.json())
 app.use(multer({fileFilter}).single("image"));
