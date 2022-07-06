@@ -14,7 +14,6 @@ const moment = require("moment");
  *        name: page
  *        schema:
  *          type: number
- *        required: true
  *        description: page number
  *     responses:
  *       200:
@@ -43,7 +42,7 @@ const moment = require("moment");
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
   let order_length
-  let pageNo = req.query.page;
+  let pageNo = req.query.page || 1;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
   let query;
@@ -54,6 +53,7 @@ exports.getOrders = async (req, res) => {
     .add(1, "days")
     .format(process.env.YYYYMMDD);
   try {
+    pageNo = parseInt(pageNo)
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
@@ -74,7 +74,7 @@ exports.getOrders = async (req, res) => {
       No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
     }
     //if page number is incorrect
-    if (pageNo < 1 || null || undefined) {
+    if (pageNo < 1 || null) {
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
@@ -155,7 +155,6 @@ exports.getOrders = async (req, res) => {
  *        name: page
  *        schema:
  *          type: number
- *        required: true
  *        description: page number
  *     responses:
  *       200:
@@ -182,7 +181,7 @@ exports.getOrders = async (req, res) => {
 
 exports.get_orders_by_scan = async (req, res) => {
   let order_per_page = 10;
-  let pageNo = req.query.page;
+  let pageNo = req.query.page || 1;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
   let order_length
@@ -191,6 +190,8 @@ exports.get_orders_by_scan = async (req, res) => {
     .format(process.env.YYYYMMDD);
 
   try {
+    pageNo = parseInt(pageNo)
+
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language

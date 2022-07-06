@@ -10,11 +10,9 @@ const {
   validate_barCode
 } = require("../validatorSchema/deliveryValidationRules");
 
-router.get("/",isAuth, orders(),
-validate,  ordersController.getOrders);
+router.get("/",isAuth,  ordersController.getOrders);
 
-router.get("/byscan",isAuth, orders(),
-validate,  ordersController.get_orders_by_scan);
+router.get("/byscan",isAuth, ordersController.get_orders_by_scan);
 
 router.get(
   "/currentdate",

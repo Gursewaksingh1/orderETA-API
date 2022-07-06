@@ -167,7 +167,7 @@ const { validationResult } = require("express-validator");
  * @swagger
  * /userdetails:
  *   get:
- *     summary: Returns user details
+ *     summary: Returns logged-in user details
  *     tags: [user]
  *     responses:
  *       200:

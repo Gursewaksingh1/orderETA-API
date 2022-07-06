@@ -139,12 +139,17 @@ const orders = () => {
   return [
     
      check("page")
-     .trim()
+     //.trim()
      .custom(async (page , { req })=> {
-  
+  page = parseInt(page)
       var reg = /^\d+$/;  //checking if string only contains number or not
       const user = await User.findOne({_id:req.user.userId})
-      if(page ==undefined || page.length ==0 ||!reg.test(page)) {
+      if(page ==undefined ||null) {
+        return page
+      }
+      console.log(typeof page);
+      page =page.trim()
+      if(!reg.test(page)) {
         if(user.Language ==1) {
           throw Error(`page must not be empty and it should be number`)
         } else if (user.Language ==2) {
