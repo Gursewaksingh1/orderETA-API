@@ -310,7 +310,7 @@ exports.getOrderByOrderId = async (req, res) => {
  *     tags: [orders]
  *     parameters:
  *      - in: path
- *        name: Seq
+ *        name: byseq
  *        schema:
  *          type: number
  *        required: true
@@ -347,7 +347,7 @@ exports.getOrderByOrderId = async (req, res) => {
 
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
-  let seq = req.params.Seq;
+  let seq = req.params.byseq;
   let success_status, failed_status, invaild_seq;
   let userId = req.user.userId;
   try {

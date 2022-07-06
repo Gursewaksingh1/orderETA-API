@@ -179,11 +179,11 @@ const order = () => {
 
 const validateSeqNumber = () => {
   return [
-    check("Seq").trim()
-    .custom(async (Seq , { req })=> {
+    check("byseq").trim()
+    .custom(async (byseq , { req })=> {
       var reg = /^\d+$/;  //checking if string only contains number or not 
       const user = await User.findOne({_id:req.user.userId})
-      if(Seq ==undefined || Seq.length ==0 ||!reg.test(Seq)) {
+      if(byseq ==undefined || byseq.length ==0 ||!reg.test(byseq)) {
         if(user.Language ==1) {
           throw Error(`Seq must not be empty and it should be number`)
         } else if (user.Language ==2) {
@@ -193,7 +193,7 @@ const validateSeqNumber = () => {
         }
         
       }
-      return Seq
+      return byseq
     }),
   ];
 };
