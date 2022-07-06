@@ -14,7 +14,7 @@ const isAuth = require("../middleware/isAuth");
 
 
 
-router.get("/", isAuth, userController.getUser);
+router.get("/userdetails", isAuth, userController.getUser);
 /**
  * @swagger
  * /userAPI/update_user_stops:
@@ -79,6 +79,6 @@ router.post(
 );
 router.post("/login", driverLoginValidationRules(), userController.login);
 router.post("/logout", isAuth, userController.logout);
-router.post("/refreshtoken", userController.refreshToken);
+router.put("/refreshtoken", userController.refreshToken);
 
 module.exports = router;

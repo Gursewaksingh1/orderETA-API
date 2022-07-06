@@ -165,7 +165,7 @@ const { validationResult } = require("express-validator");
 //endpoint for get user in swagger
 /**
  * @swagger
- * /userAPI:
+ * /userdetails:
  *   get:
  *     summary: Returns user details
  *     tags: [user]
@@ -184,8 +184,6 @@ const { validationResult } = require("express-validator");
  *           application/json:
  *             schema:
  *               type: object
- *               items:
- *                 $ref: '#/components/schemas/User'
  *     security:
  *       - bearerAuth: []
  */
@@ -413,9 +411,9 @@ exports.user_actions = async (req, res) => {
  */ 
 /**
  * @swagger
- * /userAPI/login:
+ * /login:
  *   post:
- *     summary: update user previous stop and next with latest action
+ *     summary: do user login to get token for authorized enpoints
  *     tags: [user]
  *     requestBody:
  *       required: true
@@ -520,6 +518,55 @@ exports.login = async (req, res) => {
     res.status(400).send({ status: "failed", statusCode: 400, error: err });
   }
 };
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     refresh_token:
+ *       type: object
+ *       required:
+ *         - refreshToken
+ *       properties:
+ *         refreshToken:
+ *           type: string
+ *           description: refreshToken for generating new token
+ *       example:
+ *           refreshToken: 345gffg65gh674gfdn567h56456fg
+ */ 
+/**
+ * @swagger
+ * /refreshtoken:
+ *   put:
+ *     summary: when token gets expired use this endpoint to get new token
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/refresh_token'
+ *     responses:
+ *       200:
+ *         description: Returns new token for authorization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+  *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
 
 exports.refreshToken = async (req, res) => {
   try {
@@ -562,9 +609,9 @@ exports.refreshToken = async (req, res) => {
 
 /**
  * @swagger
- * /userAPI/logout:
+ * /logout:
  *   post:
- *     summary: user logout
+ *     summary: user logout to remove token from db
  *     tags: [user]
  *     responses:
  *       200:

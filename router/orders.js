@@ -10,27 +10,27 @@ const {
   validate_barCode
 } = require("../validatorSchema/deliveryValidationRules");
 
-router.get("/orders",isAuth, orders(),
+router.get("/",isAuth, orders(),
 validate,  ordersController.getOrders);
 
-router.get("/ordersByScan",isAuth, orders(),
+router.get("/byscan",isAuth, orders(),
 validate,  ordersController.get_orders_by_scan);
 
 router.get(
-  "/orders/currentDate",
+  "/currentdate",
   isAuth,
   ordersController.getOrderByCurrentDate
 );
 
-router.get(
-  "/order/:orderId",isAuth, order(),
-  validate,
+// router.get(
+//   "/:orderId",isAuth, order(),
+//   validate,
   
-  ordersController.getOrderByOrderId
-);
+//   ordersController.getOrderByOrderId
+// );
 
 router.get(
-  "/orders/:Seq",isAuth,validateSeqNumber(),validate,
+  "/:byseq",isAuth,validateSeqNumber(),validate,
   
   ordersController.getOrderBySeq
 );

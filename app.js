@@ -32,7 +32,8 @@ const options = {
       version: '1.0.0',
     },
     servers:[{
-      url:"https://order-eta-app.herokuapp.com/"
+//      url:"http://localhost:3000/api",
+      url:"https://order-eta-app.herokuapp.com/api"
     }
      
     ],
@@ -67,9 +68,9 @@ app.use((req, res, next) => {
     next();
   });
 
-  app.use('/userAPI', userRouter);
-  app.use('/ordersAPI', orderRouter);
-  app.use('/deliveryAPI', deliveryRouter);
+  app.use('/api', userRouter);
+  app.use('/api/orders', orderRouter);
+  app.use('/api/delivery', deliveryRouter);
   app.use((req,res,next) => {
     res.status(404).send({status:"failed",statusCode:404,error:"wrong URL please check your URL and http method"})
   })

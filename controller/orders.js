@@ -5,7 +5,7 @@ const moment = require("moment");
 
 /**
  * @swagger
- * /ordersAPI/orders?page:
+ * /orders?page:
  *   get:
  *     summary: return orders
  *     tags: [orders]
@@ -42,6 +42,7 @@ const moment = require("moment");
 //fetching all user's orders
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
+  let order_length
   let pageNo = req.query.page;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
@@ -124,8 +125,9 @@ exports.getOrders = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
+      order_length = orders.length
     //if orders array length is empty and page no is 1 then throw responce
-    if (orders.length == 0 && pageNo) {
+    if (order_length == 0 && pageNo) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -134,7 +136,7 @@ exports.getOrders = async (req, res) => {
     }
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200, data: orders });
+      .send({ status: success_status, statusCode: 200,order_length, data: orders });
   } catch (err) {
     res
       .status(400)
@@ -144,9 +146,9 @@ exports.getOrders = async (req, res) => {
 
 /**
  * @swagger
- * /ordersAPI/ordersByScan?page:
+ * /orders/byscan?page:
  *   get:
- *     summary: return orders
+ *     summary: return orders 
  *     tags: [orders]
  *     parameters:
  *      - in: query
@@ -302,9 +304,9 @@ exports.getOrderByOrderId = async (req, res) => {
 
 /**
  * @swagger
- * /ordersAPI/orders/{Seq}:
+ * /orders/{byseq}:
  *   get:
- *     summary: return orders
+ *     summary: return orders using Seq number
  *     tags: [orders]
  *     parameters:
  *      - in: path
@@ -315,19 +317,25 @@ exports.getOrderByOrderId = async (req, res) => {
  *        description: Seq number
  *     responses:
  *       200:
- *         description: return orders
+ *         description: order fetched successfully 
  *         content:
  *           application/json:
  *             schema:
- *               type: array
+ *               type: object
  *       403:
  *         description: token error
  *         content:
  *           application/json:
  *             schema:
  *               type: object
-  *       422:
- *         description: token error
+ *       404:
+ *         description: no orders available
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       422:
+ *         description: validation error
  *         content:
  *           application/json:
  *             schema:
