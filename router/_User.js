@@ -2,12 +2,12 @@ const express = require("express");
 const userController = require("../controller/_User");
 const router = express.Router();
 const validate = require("../validatorSchema/validateMiddleware");
-
 const {
   driverLoginValidationRules,
   validate_driver_actions,
   validate_user_image,
   update_user_stops,
+  validatedebug_temp
 } = require("../validatorSchema/deliveryValidationRules");
 
 const isAuth = require("../middleware/isAuth");
@@ -62,6 +62,7 @@ router.put(
   validate,
   userController.updateUser
 );
+router.post("/debugtemp",isAuth,validatedebug_temp(),validate,userController.debug_temp)
 router.get("/getStore", isAuth, userController.get_store_of_logined_user);
 router.post(
   "/userAction",

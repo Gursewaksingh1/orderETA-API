@@ -5,6 +5,7 @@ const DriverActions = require("../model/driver_actions");
 const User_Logout = require("../model/user_white_list");
 const UserImage = require("../model/user_image");
 const Store = require("../model/store");
+const Debug_Temp = require("../model/debug_temp")
 const { validationResult } = require("express-validator");
 
 /**
@@ -380,7 +381,7 @@ exports.user_actions = async (req, res) => {
     res.status(201).send({
       status: success_status,
       statusCode: 201,
-      msg: user_action_message,
+      data: user_action_message,
     });
   } catch (err) {
     res
@@ -389,6 +390,45 @@ exports.user_actions = async (req, res) => {
   }
 };
 
+exports.debug_temp = async(req,res) => {
+  let temp_desc_string = req.body.temp_desc_string
+  let debug_temp_msg;
+  try {
+
+     //fetching user using user id
+     const user = await User.findOne({ _id: userId });
+     // checking for user language
+     if (user.Language == 1) {
+       success_status = process.env.SUCCESS_STATUS_ENGLISH;
+       failed_status = process.env.FAILED_STATUS_ENGLISH;
+       debug_temp_msg = process.env.DEBUG_TEMP_ENGLISH;;
+     } else if (user.Language == 2) {
+       success_status = process.env.SUCCESS_STATUS_SPANISH;
+       failed_status = process.env.FAILED_STATUS_SPANISH;
+       debug_temp_msg = process.env.DEBUG_TEMP_SPANISH;
+     } else {
+       success_status = process.env.SUCCESS_STATUS_ENGLISH;
+       failed_status = process.env.FAILED_STATUS_ENGLISH;
+       debug_temp_msg = process.env.DEBUG_TEMP_ENGLISH;;
+     }
+    debug_temp = new Debug_Temp({
+      userId: req.user.userId,
+      temp_desc:temp_desc_string,
+      _createdAt: new Date(),
+      _updatedAt: new Date()
+    })
+    debug_temp.save()
+    res.status(201).send({
+      status: success_status,
+      statusCode: 201,
+      data: debug_temp_msg,
+    });
+  } catch (err) {
+    res
+    .status(400)
+    .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
 
 /**
  *   @swagger
@@ -402,8 +442,8 @@ exports.user_actions = async (req, res) => {
  *         username:
  *           type: string
  *           description: username of user
- *         Language:
- *           password: integer
+ *         password:
+ *           type: string
  *           description: password of user
  *       example:
  *           username: yurashm
@@ -462,7 +502,7 @@ exports.login = async (req, res) => {
       return res.status(422).json({
         status: "failed",
         statusCode: 422,
-        errors: extractedErrors,
+        error: extractedErrors,
       });
     }
 
@@ -502,6 +542,7 @@ exports.login = async (req, res) => {
             res.status(200).send({
               status: "success",
               statusCode: 200,
+              username:user.username,
               token,
               refreshToken,
             });
@@ -509,7 +550,7 @@ exports.login = async (req, res) => {
             res.status(403).send({
               status: "failed",
               statusCode: 403,
-              msg: "invaild username or password",
+              error: "invaild username or password",
             });
           }
         });

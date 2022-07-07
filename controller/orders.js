@@ -127,11 +127,11 @@ exports.getOrders = async (req, res) => {
       .limit(order_per_page);
       order_length = orders.length
     //if orders array length is empty and page no is 1 then throw responce
-    if (order_length == 0 && pageNo) {
+    if (order_length == 0 && pageNo==1) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        msg: No_order_available,
+        error: No_order_available,
       });
     }
     res
@@ -249,11 +249,11 @@ exports.get_orders_by_scan = async (req, res) => {
 
       order_length = orders.length
     //if orders array length is empty and page no is 1 then throw responce
-    if (order_length == 0 && pageNo) {
+    if (order_length == 0 && pageNo==1) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        msg: No_order_available,
+        error: No_order_available,
       });
     }
     res
@@ -559,7 +559,6 @@ exports.listOrders = async (req, res) => {
       });
     }
   } catch (err) {
-    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });

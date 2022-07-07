@@ -291,6 +291,16 @@ const validate_barCode = () => {
   ];
 };
 
+const validatedebug_temp = () => {
+  return [
+    body("temp_desc_string")  .custom(async (temp_desc_string , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(temp_desc_string,user,"string","cuerda","temp_desc_string")
+      customVerifyLength(temp_desc_string,user,5,"temp_desc_string length should atleast 5 char long","temp_desc_string la longitud debe tener al menos 5 caracteres de largo")
+    return temp_desc_string
+    })
+  ]
+}
 let validate_user_image = () => {
   return [
     body("image").custom(async (image , { req })=> {
@@ -327,5 +337,6 @@ module.exports = {
   validate_barCode,
   validate_driver_actions,
   validate_user_image,
-  update_user_stops
+  update_user_stops,
+  validatedebug_temp
 };
