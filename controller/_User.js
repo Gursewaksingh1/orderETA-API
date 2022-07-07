@@ -390,13 +390,61 @@ exports.user_actions = async (req, res) => {
   }
 };
 
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     debugtemp:
+ *       type: object
+ *       required:
+ *         - temp_desc_string
+ *       properties:
+ *         temp_desc_string:
+ *           type: string
+ *           description: temp_desc_string is error msg
+ *       example:
+ *           temp_desc_string: catch 5catch number 5  catch 1catch 3waypoints_tester contains:Schwartz3 Sears Rd, waypoints_tester2 contains:Schwartz3 Sears Rd, waypoint contains:Schwartz3 Sears Rd, 
+ */ 
+/**
+ * @swagger
+ * /debugtemp:
+ *   post:
+ *     summary: this endpoint is used when after login app got crashed and to inform the reason to deveploer
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/debugtemp'
+ *     responses:
+ *       200:
+ *         description: Report sent to developer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/debugtemp'
+ *     security:
+ *       - bearerAuth: []
+ */
+
 exports.debug_temp = async(req,res) => {
   let temp_desc_string = req.body.temp_desc_string
-  let debug_temp_msg;
+  let debug_temp_msg,success_status,failed_status;
   try {
 
      //fetching user using user id
-     const user = await User.findOne({ _id: userId });
+     const user = await User.findOne({ _id: req.user.userId });
      // checking for user language
      if (user.Language == 1) {
        success_status = process.env.SUCCESS_STATUS_ENGLISH;
@@ -424,6 +472,7 @@ exports.debug_temp = async(req,res) => {
       data: debug_temp_msg,
     });
   } catch (err) {
+    console.log(err);
     res
     .status(400)
     .send({ status: failed_status, statusCode: 400, error: err });
@@ -524,7 +573,7 @@ exports.login = async (req, res) => {
             let token = jwt.sign(
               { userName: user.username, userId: user._id },
               process.env.SECRET,
-              { expiresIn: 60 * 60 * 12 }
+              { expiresIn: 60 * 5 }
             );
             //creating refresh token
             let refreshToken = jwt.sign(
@@ -707,7 +756,6 @@ exports.logout = async (req, res) => {
       .status(200)
       .send({ status: success_status, statusCode: 200, data: userLogout });
   } catch (err) {
-    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });

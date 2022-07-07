@@ -12,13 +12,13 @@ const validate = async(req, res, next) => {
       return res.status(422).json({
         status:"failed",
         statusCode: 422,
-        errors: extractedErrors,
+        error: extractedErrors,
       })
     } else if (user.Language == 2) {
       return res.status(422).json({
         status:"ha fallado",
         statusCode: 422,
-        errors: extractedErrors,
+        error: extractedErrors,
       })
     } 
         
