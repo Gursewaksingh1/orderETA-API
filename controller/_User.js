@@ -274,23 +274,15 @@ exports.updateUser = async (req, res) => {
  *   get:
  *     summary: get all reasons from database
  *     tags: [user]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
  *     responses:
  *       200:
  *         description: all reasons fetched successfull
  *         content:
  *           application/json:
- *       403:
- *         description: invalid username and password
- *         content:
- *           application/json:
- *       422:
- *         description: validation error
- *         content:
- *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
  */
 
 exports.getReason = async(req,res) => {
@@ -329,20 +321,17 @@ exports.getReason = async(req,res) => {
  *   get:
  *     summary: get hereInf data from database
  *     tags: [user]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
  *     responses:
  *       200:
- *         description: all reasons fetched successfull
+ *         description: get hereInf data from database
  *         content:
  *           application/json:
- *       422:
- *         description: validation error
- *         content:
- *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
  */
+
 exports.getHereInf = async(req,res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
@@ -379,20 +368,17 @@ exports.getHereInf = async(req,res) => {
  *   get:
  *     summary: getting logged in user's store details from database
  *     tags: [user]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
  *     responses:
  *       200:
  *         description: store details fetched successfull
  *         content:
  *           application/json:
- *       422:
- *         description: validation error
- *         content:
- *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
  */
+
 exports.get_store_of_logined_user = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
