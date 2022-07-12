@@ -125,6 +125,16 @@ exports.getOrders = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
+
+      orders.map(order => {
+        if(order.boxes_scanned_in ==order.total_boxes) {
+          console.log(order.total_boxes,order.boxes_scanned_in);
+          order.status = "Ready"
+        } else {
+          order.status = "not_confirmed"
+        }
+      })
+      console.log(orders);
       order_length = orders.length
     //if orders array length is empty and page no is 1 then throw responce
     if (order_length == 0 && pageNo==1) {

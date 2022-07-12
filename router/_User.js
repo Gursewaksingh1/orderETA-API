@@ -7,7 +7,8 @@ const {
   validate_driver_actions,
   validate_user_image,
   update_user_stops,
-  validatedebug_temp
+  validatedebug_temp,
+  validate_logged_routing_request
 } = require("../validatorSchema/deliveryValidationRules");
 
 const isAuth = require("../middleware/isAuth");
@@ -63,7 +64,10 @@ router.put(
   userController.updateUser
 );
 router.post("/debugtemp",isAuth,validatedebug_temp(),validate,userController.debug_temp)
-router.get("/getStore", isAuth, userController.get_store_of_logined_user);
+router.get("/reason", isAuth, userController.getReason);
+router.get("/hereInf", isAuth, userController.getHereInf);
+router.post("/LoggedRoutingRequest", isAuth, validate_logged_routing_request(),validate, userController.post_Logged_routing_request);
+router.get("/store", isAuth, userController.get_store_of_logined_user);
 router.post(
   "/userAction",
   isAuth,

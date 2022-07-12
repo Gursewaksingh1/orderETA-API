@@ -7,7 +7,9 @@ const UserImage = require("../model/user_image");
 const Store = require("../model/store");
 const Debug_Temp = require("../model/debug_temp")
 const { validationResult } = require("express-validator");
-
+const HereInf = require("../model/hereInf");
+const Reason = require("../model/Reason");
+const Logged_routing_request = require("../model/logged_routing_requests");
 /**
  *   @swagger
  *   components:
@@ -265,6 +267,132 @@ exports.updateUser = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+ 
+/**
+ * @swagger
+ * /reason:
+ *   get:
+ *     summary: get all reasons from database
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *     responses:
+ *       200:
+ *         description: all reasons fetched successfull
+ *         content:
+ *           application/json:
+ *       403:
+ *         description: invalid username and password
+ *         content:
+ *           application/json:
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ */
+
+exports.getReason = async(req,res) => {
+  let userId = req.user.userId;
+  let success_status, failed_status;
+  try {
+    // fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    }
+    const reason = await Reason.find()
+    res.status(200).send({
+      status: success_status,
+      statusCode: 200,
+      data: reason,
+    });
+  } catch (err) {
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
+
+/**
+ * @swagger
+ * /hereInf:
+ *   get:
+ *     summary: get hereInf data from database
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *     responses:
+ *       200:
+ *         description: all reasons fetched successfull
+ *         content:
+ *           application/json:
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ */
+exports.getHereInf = async(req,res) => {
+  let userId = req.user.userId;
+  let success_status, failed_status;
+  try {
+    // fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    }
+    const hereInf = await HereInf.find({AppID:{$ne:55}})
+    res.status(200).send({
+      status: success_status,
+      statusCode: 200,
+      data: hereInf,
+    });
+  } catch (err) {
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
+
+/**
+ * @swagger
+ * /store:
+ *   get:
+ *     summary: getting logged in user's store details from database
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *     responses:
+ *       200:
+ *         description: store details fetched successfull
+ *         content:
+ *           application/json:
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ */
 exports.get_store_of_logined_user = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
@@ -296,6 +424,45 @@ exports.get_store_of_logined_user = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+exports.post_Logged_routing_request = async(req,res) => {
+  let userId = req.user.userId;
+  let success_status, failed_status;
+  try {
+    // fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+    }
+    const logged_routing_request = new Logged_routing_request({
+      store_id:user.store_id,
+      driver_name:user.username,
+      route_started:req.body.route_started,
+      the_url:req.body.the_url,
+      the_result:req.body.the_result,
+      url_date:new Date(),
+      createdAt:new Date(),
+      updatedAt:new Date()
+    });
+    logged_routing_request.save();
+    res.status(200).send({
+      status: success_status,
+      statusCode: 200,
+      data: logged_routing_request,
+    });
+  } catch (err) {
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
 exports.add_user_image = async (req, res) => {
   let success_status, failed_status, image_err, image_size_err;
   try {

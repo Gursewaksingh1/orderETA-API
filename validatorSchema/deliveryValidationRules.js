@@ -327,6 +327,26 @@ let validate_user_image = () => {
     })
   ]
 }
+
+let validate_logged_routing_request = () => {
+  return [
+    body("the_url").custom(async (the_url , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(the_url,user,"string","cuerda","the_url")
+      return the_url
+    }),
+    body("route_started").custom(async (route_started , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(route_started,user,"string","cuerda","route_started")
+      return route_started
+    }),
+    body("the_result").custom(async (the_result , { req })=> {
+      const user = await User.findOne({_id:req.user.userId})
+      customVerify(the_result,user,"string","cuerda","the_result")
+      return the_result
+    }),
+  ]
+}
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
@@ -338,5 +358,6 @@ module.exports = {
   validate_driver_actions,
   validate_user_image,
   update_user_stops,
-  validatedebug_temp
+  validatedebug_temp,
+  validate_logged_routing_request
 };
