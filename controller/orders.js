@@ -39,9 +39,10 @@ const moment = require("moment");
  */
 
 //fetching all user's orders
+  //order_entry_method = 3
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
-  let order_length
+  let order_length,storeObj
   let pageNo = req.query.page || 1;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
@@ -125,15 +126,21 @@ exports.getOrders = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-
+//adding status field in orders by placing if condition
       orders.map(order => {
         if(order.boxes_scanned_in ==order.total_boxes) {
-          console.log(order.total_boxes,order.boxes_scanned_in);
           order.status = "Ready"
         } else {
-          order.status = "not_confirmed"
+          order.status = "Unconfirmed"
         }
       })
+      storeObj = {
+        store_name: store.store_name,
+        store_id: store.store_id,
+        barcode_type: store.barcode_type,
+
+      }
+      //getting order length
       order_length = orders.length
     //if orders array length is empty and page no is 1 then throw responce
     if (order_length == 0 && pageNo==1) {
@@ -187,8 +194,9 @@ exports.getOrders = async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-
+  //order_entry_method = 1
 exports.get_orders_by_scan = async (req, res) => {
+
   let order_per_page = 10;
   let pageNo = req.query.page || 1;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
@@ -257,7 +265,6 @@ exports.get_orders_by_scan = async (req, res) => {
       .limit(order_per_page);
       orders.map(order => {
         if(order.boxes_scanned_in ==order.total_boxes) {
-          console.log(order.total_boxes,order.boxes_scanned_in);
           order.status = "Ready"
         } else {
           order.status = "not_confirmed"
