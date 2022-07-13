@@ -44,7 +44,7 @@ exports.getOrders = async (req, res) => {
   let order_per_page = 10;
   let order_length,storeObj
   let pageNo = req.query.page || 1;
-  let success_status, failed_status, wrong_page_no_msg, No_order_available;
+  let success_status, failed_status, wrong_page_no_msg, No_order_available,ready,unconfirmed;
   let userId = req.user.userId;
   let query;
   let date_sent_to_device_check = moment(new Date()).format(
@@ -63,16 +63,22 @@ exports.getOrders = async (req, res) => {
       failed_status = process.env.FAILED_STATUS_ENGLISH;
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
       No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
+      unconfirmed = process.env.UNCONFIRMED_ENGLISH;
+      ready = process.env.READY_ENGLISH;
     } else if (user.Language == 2) {
       success_status = process.env.SUCCESS_STATUS_SPANISH;
       failed_status = process.env.FAILED_STATUS_SPANISH;
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_SPANISH;
       No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH;
+      unconfirmed = process.env.UNCONFIRMED_SPANISH;
+      ready = process.env.READY_SPANISH;
     } else {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
       No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
+      ready = process.env.READY_ENGLISH;
+      unconfirmed = process.env.UNCONFIRMED_ENGLISH;
     }
     //if page number is incorrect
     if (pageNo < 1 || null) {
@@ -83,7 +89,15 @@ exports.getOrders = async (req, res) => {
       });
     }
     //fetching store doc of logged in user
-    const store = await Store({ store_id: user.store_id });
+    store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name:"store_name",
+        store_id:"store_id",
+      }
+    );
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
     if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
@@ -134,12 +148,6 @@ exports.getOrders = async (req, res) => {
           order.status = "Unconfirmed"
         }
       })
-      storeObj = {
-        store_name: store.store_name,
-        store_id: store.store_id,
-        barcode_type: store.barcode_type,
-
-      }
       //getting order length
       order_length = orders.length
     //if orders array length is empty and page no is 1 then throw responce
@@ -152,7 +160,7 @@ exports.getOrders = async (req, res) => {
     }
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200,order_length, data: orders });
+      .send({ status: success_status, statusCode: 200,order_length,store, data: orders });
   } catch (err) {
     res
       .status(400)
@@ -237,7 +245,15 @@ exports.get_orders_by_scan = async (req, res) => {
     });
   }
     //fetching store doc of logged in user
-    const store = await Store({ store_id: user.store_id });
+    store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name:"store_name",
+        store_id:"store_id",
+      }
+    );
     //query need to run on db from getting orders
     query = {
       store_id: user.store_id,
@@ -281,7 +297,7 @@ exports.get_orders_by_scan = async (req, res) => {
     }
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200, order_length, data: orders });
+      .send({ status: success_status, statusCode: 200, order_length,store, data: orders });
   } catch (err) {
     res
     .status(400)
@@ -587,3 +603,20 @@ exports.listOrders = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+
+async function findData(Modal, queryObj= {}, reqFieldObj = {}) {
+  let reqFields,
+    data,
+    str = "";
+    //console.log(model);
+  if (Object.keys(reqFieldObj).length === 0) {
+    data = await Modal.find(queryObj);
+  } else {
+    reqFields = Object.values(reqFieldObj);
+    for (i = 0; i < reqFields.length; i++) {
+      str = str + reqFields[i]+" ";
+    }
+    data = await Modal.find(queryObj).select(str);
+  }
+  return data;
+}
