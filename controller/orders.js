@@ -1,5 +1,5 @@
-const User = require("../model/_User");
-const Orders = require("../model/ordersModel");
+const User = require("../model/user");
+const Orders = require("../model/orders");
 const Store = require("../model/store");
 const moment = require("moment");
 
@@ -28,7 +28,7 @@ const moment = require("moment");
  *           application/json:
  *             schema:
  *               type: object
-  *       422:
+ *       422:
  *         description: validatio error
  *         content:
  *           application/json:
@@ -39,12 +39,17 @@ const moment = require("moment");
  */
 
 //fetching all user's orders
-  //order_entry_method = 3
+//order_entry_method = 3
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
-  let order_length,storeObj
+  let order_length;
   let pageNo = req.query.page || 1;
-  let success_status, failed_status, wrong_page_no_msg, No_order_available,ready,unconfirmed;
+  let success_status,
+    failed_status,
+    wrong_page_no_msg,
+    No_order_available,
+    ready,
+    unconfirmed;
   let userId = req.user.userId;
   let query;
   let date_sent_to_device_check = moment(new Date()).format(
@@ -54,32 +59,35 @@ exports.getOrders = async (req, res) => {
     .add(1, "days")
     .format(process.env.YYYYMMDD);
   try {
-    pageNo = parseInt(pageNo)
+    pageNo = parseInt(pageNo);
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
-      unconfirmed = process.env.UNCONFIRMED_ENGLISH;
-      ready = process.env.READY_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_SPANISH;
-      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH;
-      unconfirmed = process.env.UNCONFIRMED_SPANISH;
-      ready = process.env.READY_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
-      ready = process.env.READY_ENGLISH;
-      unconfirmed = process.env.UNCONFIRMED_ENGLISH;
-    }
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
+    wrong_page_no_msg =
+      user.Language == 1
+        ? process.env.WORONG_PAGE_NO_MSG_ENGLISH
+        : process.env.WORONG_PAGE_NO_MSG_SPANISH;
+    No_order_available =
+      user.Language == 1
+        ? process.env.NO_ORDER_AVAILABLE_ENGLISH
+        : process.env.NO_ORDER_AVAILABLE_SPANISH;
+    unconfirmed =
+      user.Language == 1
+        ? process.env.UNCONFIRMED_ENGLISH
+        : process.env.UNCONFIRMED_SPANISH;
+    ready =
+      user.Language == 1
+        ? process.env.READY_ENGLISH
+        : process.env.READY_SPANISH;
+    // }
     //if page number is incorrect
     if (pageNo < 1 || null) {
       return res.status(400).send({
@@ -94,8 +102,8 @@ exports.getOrders = async (req, res) => {
       { store_id: user.store_id },
       {
         show_yesterdays_orders_too: "show_yesterdays_orders_too",
-        store_name:"store_name",
-        store_id:"store_id",
+        store_name: "store_name",
+        store_id: "store_id",
       }
     );
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
@@ -140,18 +148,18 @@ exports.getOrders = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-//adding status field in orders by placing if condition
-      orders.map(order => {
-        if(order.boxes_scanned_in ==order.total_boxes) {
-          order.status = "Ready"
-        } else {
-          order.status = "Unconfirmed"
-        }
-      })
-      //getting order length
-      order_length = orders.length
+    //adding status field in orders by placing if condition
+    orders.map((order) => {
+      if (order.boxes_scanned_in == order.total_boxes) {
+        order.status = "Ready";
+      } else {
+        order.status = "Unconfirmed";
+      }
+    });
+    //getting order length
+    order_length = orders.length;
     //if orders array length is empty and page no is 1 then throw responce
-    if (order_length == 0 && pageNo==1) {
+    if (order_length == 0 && pageNo == 1) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -160,7 +168,13 @@ exports.getOrders = async (req, res) => {
     }
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200,order_length,store, data: orders });
+      .send({
+        status: success_status,
+        statusCode: 200,
+        order_length,
+        store,
+        data: { user, orders },
+      });
   } catch (err) {
     res
       .status(400)
@@ -172,7 +186,7 @@ exports.getOrders = async (req, res) => {
  * @swagger
  * /orders/byscan?page:
  *   get:
- *     summary: return orders 
+ *     summary: return orders
  *     tags: [orders]
  *     parameters:
  *      - in: query
@@ -193,7 +207,7 @@ exports.getOrders = async (req, res) => {
  *           application/json:
  *             schema:
  *               type: object
-  *       422:
+ *       422:
  *         description: validation error
  *         content:
  *           application/json:
@@ -202,20 +216,19 @@ exports.getOrders = async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-  //order_entry_method = 1
+//order_entry_method = 1
 exports.get_orders_by_scan = async (req, res) => {
-
   let order_per_page = 10;
   let pageNo = req.query.page || 1;
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
-  let order_length
+  let order_length;
   let datetime_created_check = moment()
     .subtract(1, "days")
     .format(process.env.YYYYMMDD);
 
   try {
-    pageNo = parseInt(pageNo)
+    pageNo = parseInt(pageNo);
 
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -236,22 +249,22 @@ exports.get_orders_by_scan = async (req, res) => {
       wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
       No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
     }
-   //if page number is incorrect
-   if (pageNo < 1 || null || undefined) {
-    return res.status(400).send({
-      status: failed_status,
-      statusCode: 400,
-      error: wrong_page_no_msg,
-    });
-  }
+    //if page number is incorrect
+    if (pageNo < 1 || null || undefined) {
+      return res.status(400).send({
+        status: failed_status,
+        statusCode: 400,
+        error: wrong_page_no_msg,
+      });
+    }
     //fetching store doc of logged in user
     store = await findData(
       Store,
       { store_id: user.store_id },
       {
         show_yesterdays_orders_too: "show_yesterdays_orders_too",
-        store_name:"store_name",
-        store_id:"store_id",
+        store_name: "store_name",
+        store_id: "store_id",
       }
     );
     //query need to run on db from getting orders
@@ -262,7 +275,7 @@ exports.get_orders_by_scan = async (req, res) => {
       driver_string: { $eq: null },
       datetime_created: { $gte: datetime_created_check },
     };
-//change in datetime_created if load_in_late_orders_too is not eq to one
+    //change in datetime_created if load_in_late_orders_too is not eq to one
     if (user.load_in_late_orders_too != 1) {
       datetime_created_check = moment(new Date())
         .add(1, "days")
@@ -279,16 +292,16 @@ exports.get_orders_by_scan = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-      orders.map(order => {
-        if(order.boxes_scanned_in ==order.total_boxes) {
-          order.status = "Ready"
-        } else {
-          order.status = "not_confirmed"
-        }
-      })
-      order_length = orders.length
+    orders.map((order) => {
+      if (order.boxes_scanned_in == order.total_boxes) {
+        order.status = "Ready";
+      } else {
+        order.status = "not_confirmed";
+      }
+    });
+    order_length = orders.length;
     //if orders array length is empty and page no is 1 then throw responce
-    if (order_length == 0 && pageNo==1) {
+    if (order_length == 0 && pageNo == 1) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -297,11 +310,17 @@ exports.get_orders_by_scan = async (req, res) => {
     }
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200, order_length,store, data: orders });
+      .send({
+        status: success_status,
+        statusCode: 200,
+        order_length,
+        store,
+        data: orders,
+      });
   } catch (err) {
     res
-    .status(400)
-    .send({ status: failed_status, statusCode: 400, error: err });
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
 //fetching user order by order id
@@ -357,7 +376,7 @@ exports.getOrderByOrderId = async (req, res) => {
  *        description: Seq number
  *     responses:
  *       200:
- *         description: order fetched successfully 
+ *         description: order fetched successfully
  *         content:
  *           application/json:
  *             schema:
@@ -383,7 +402,6 @@ exports.getOrderByOrderId = async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-
 
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
@@ -604,17 +622,17 @@ exports.listOrders = async (req, res) => {
   }
 };
 
-async function findData(Modal, queryObj= {}, reqFieldObj = {}) {
+async function findData(Modal, queryObj = {}, reqFieldObj = {}) {
   let reqFields,
     data,
     str = "";
-    //console.log(model);
+  //console.log(model);
   if (Object.keys(reqFieldObj).length === 0) {
     data = await Modal.find(queryObj);
   } else {
     reqFields = Object.values(reqFieldObj);
     for (i = 0; i < reqFields.length; i++) {
-      str = str + reqFields[i]+" ";
+      str = str + reqFields[i] + " ";
     }
     data = await Modal.find(queryObj).select(str);
   }

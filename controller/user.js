@@ -1,15 +1,15 @@
-const User = require("../model/_User");
+const User = require("../model/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const DriverActions = require("../model/driver_actions");
-const User_Logout = require("../model/user_white_list");
-const UserImage = require("../model/user_image");
+const DriverActions = require("../model/driveractions");
+const User_Logout = require("../model/userwhitelist");
+const UserImage = require("../model/userimage");
 const Store = require("../model/store");
-const Debug_Temp = require("../model/debug_temp")
+const Debug_Temp = require("../model/debugtemp")
 const { validationResult } = require("express-validator");
-const HereInf = require("../model/hereInf");
-const Reason = require("../model/Reason");
-const Logged_routing_request = require("../model/logged_routing_requests");
+const HereInf = require("../model/hereinf");
+const Reason = require("../model/reason");
+const Logged_routing_request = require("../model/loggedroutingrequests");
 /**
  *   @swagger
  *   components:
@@ -198,16 +198,14 @@ exports.getUser = async (req, res) => {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-    }
+    success_status =
+    user.Language == 1
+      ? process.env.SUCCESS_STATUS_ENGLISH
+      : process.env.SUCCESS_STATUS_SPANISH;
+  failed_status =
+    user.Language == 1
+      ? process.env.FAILED_STATUS_ENGLISH
+      : process.env.FAILED_STATUS_SPANISH;
     res.status(200).send({
       status: success_status,
       statusCode: 200,
@@ -227,19 +225,19 @@ exports.updateUser = async (req, res) => {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      update_user_failed = process.env.UPDATE_USER_FAILED_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      update_user_failed = process.env.UPDATE_USER_FAILED_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      update_user_failed = process.env.UPDATE_USER_FAILED_ENGLISH;
-    }
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
+    update_user_failed =
+      user.Language == 1
+        ? process.env.UPDATE_USER_FAILED_ENGLISH
+        : process.env.UPDATE_USER_FAILED_SPANISH;
+        //updating user
     const update_User = await User.updateOne(
       { _id: userId },
       {
@@ -317,7 +315,7 @@ exports.getReason = async(req,res) => {
 
 /**
  * @swagger
- * /hereInf:
+ * /hereinf:
  *   get:
  *     summary: get hereInf data from database
  *     tags: [user]
@@ -745,6 +743,7 @@ exports.login = async (req, res) => {
               status: "success",
               statusCode: 200,
               username:user.username,
+              language:user.Language,
               token,
               refreshToken,
             });

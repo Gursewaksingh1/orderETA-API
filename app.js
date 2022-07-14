@@ -5,9 +5,10 @@ const port = process.env.PORT || 3000;
 const mongoose = require('mongoose');
 const dotenv = require("dotenv");
 const multer = require("multer");
-const userRouter = require("./router/_User")
+const userRouter = require("./router/user")
 const orderRouter = require("./router/orders")
 const deliveryRouter = require("./router/delivery")
+const settingRouter = require("./router/settings")
 const swaggerUI = require("swagger-ui-express")
 const swaggerJsdoc = require("swagger-jsdoc")
 dotenv.config();
@@ -26,10 +27,10 @@ const fileFilter=(req, file, cb) => {
 const options = {
 
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'order-ETA',
-      version: '1.0.0',
+      title: "order-ETA",
+      version: "1.0.0",
     },
     servers:[{
      //url:"http://localhost:3000/api",
@@ -53,11 +54,11 @@ const options = {
     },
 
   },
-  apis: ['./controller/*.js'], // files containing annotations as above
+  apis: ["./controller/*.js"], // files containing annotations as above
 };
 const swaggerSpac = swaggerJsdoc(options)
 
-app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpac));
+app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpac));
 app.use(bodyparser.urlencoded({extended: false }));
 app.use(express.json())
 app.use(multer({fileFilter}).single("image"));
@@ -68,9 +69,10 @@ app.use((req, res, next) => {
     next();
   });
 
-  app.use('/api', userRouter);
-  app.use('/api/orders', orderRouter);
-  app.use('/api/delivery', deliveryRouter);
+  app.use("/api", userRouter);
+  app.use("/api/orders", orderRouter);
+  app.use("/api/delivery", deliveryRouter);
+  app.use("/api/settings", settingRouter);
   app.use((req,res,next) => {
     res.status(404).send({status:"failed",statusCode:404,error:"wrong URL please check your URL and http method"})
   })

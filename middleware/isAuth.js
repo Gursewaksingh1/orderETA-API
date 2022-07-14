@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User_Logout = require("../model/user_white_list");
+const User_Logout = require("../model/userwhitelist");
 
 isAuth = async (req, res, next) => {
   const auth = req.headers["authorization"];
@@ -27,7 +27,7 @@ isAuth = async (req, res, next) => {
       next();
     }
   } catch (err) {
-    return res.status(403).send({ status: "failed",statusCode:403, error: err });
+    return res.status(403).send({ status: "failed",statusCode:403, error: `${err.name}, ${err.message} `});
   }
 };
 

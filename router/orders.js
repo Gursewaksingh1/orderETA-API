@@ -1,16 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const ordersController = require('../controller/orders');
+const ordersController = require("../controller/orders");
 const isAuth = require("../middleware/isAuth")
-const validate = require("../validatorSchema/validateMiddleware");
+const validate = require("../validatorSchema/validatemiddleware");
 const {
-  orders,
   order,
   validateSeqNumber,
   validate_barCode
-} = require("../validatorSchema/deliveryValidationRules");
+} = require("../validatorSchema/validationrules");
 
-router.get("/",isAuth,  ordersController.getOrders);
+router.get("/",isAuth, ordersController.getOrders);
 
 router.get("/byscan",isAuth, ordersController.get_orders_by_scan);
 
@@ -20,20 +19,13 @@ router.get(
   ordersController.getOrderByCurrentDate
 );
 
-// router.get(
-//   "/:orderId",isAuth, order(),
-//   validate,
-  
-//   ordersController.getOrderByOrderId
-// );
-
 router.get(
   "/:byseq",isAuth,validateSeqNumber(),validate,
   
   ordersController.getOrderBySeq
 );
 
-router.post("/confirmBarCode",isAuth,validate_barCode(),validate,ordersController.confirmBarCode)
-router.post('/listOrders',isAuth,order(),validate,ordersController.listOrders)
+router.post("/confirmbarcode",isAuth,validate_barCode(),validate,ordersController.confirmBarCode)
+router.post("/listorders",isAuth,order(),validate,ordersController.listOrders)
 
 module.exports = router;

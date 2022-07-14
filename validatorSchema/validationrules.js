@@ -1,5 +1,5 @@
 const { body, check } = require("express-validator");
-const User = require("../model/_User");
+const User = require("../model/user");
 
 //func for verifying is input empty and datatype
 function customVerify(val,userObj,datatype,datatype_spanish,fieldName,) {
@@ -347,6 +347,31 @@ let validate_logged_routing_request = () => {
     }),
   ]
 }
+
+let validateLanguage = () => {
+  return [
+    body("language").trim()
+    .custom(async (language , { req })=> {
+      var reg = /^\d+$/;  //checking if string only contains number or not 
+      const user = await User.findOne({_id:req.user.userId})
+      if(language ==undefined || language.length ==0 ||!reg.test(language)) {
+        if(user.Language ==1) {
+          throw Error(`language must not be empty and it should be number`)
+        } else if (user.Language ==2) {
+          throw Error(`language no debe estar vacío y debe ser una número`)
+        }
+      }
+      if(language <=0 ||language>2) {
+        if(user.Language ==1) {
+          throw Error(`language can either be number 1 or 2`)
+        } else if (user.Language ==2) {
+          throw Error(`language puede ser número 1 o 2`)
+        }
+      }
+      return language
+    }),
+  ];
+}
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
@@ -359,5 +384,6 @@ module.exports = {
   validate_user_image,
   update_user_stops,
   validatedebug_temp,
-  validate_logged_routing_request
+  validate_logged_routing_request,
+  validateLanguage
 };

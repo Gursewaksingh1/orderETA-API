@@ -1,5 +1,5 @@
-const User = require("../model/_User");
-const DriverSteps = require("../model/driver_steps");
+const User = require("../model/user");
+const DriverSteps = require("../model/driversteps");
 exports.startDelivery = async (req, res) => {
   let {
     startLatitude,

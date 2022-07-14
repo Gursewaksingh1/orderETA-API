@@ -2,8 +2,8 @@ const express = require("express");
 const deliveryController = require("../controller/delivery");
 const router = express.Router();
 const isAuth = require("../middleware/isAuth");
-const {deliveryValidationRules} = require("../validatorSchema/deliveryValidationRules");
-const validate = require("../validatorSchema/validateMiddleware");
+const {deliveryValidationRules} = require("../validatorSchema/validationrules");
+const validate = require("../validatorSchema/validatemiddleware");
 
 router.post(
   "/",
