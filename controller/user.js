@@ -7,8 +7,8 @@ const UserImage = require("../model/userimage");
 const Store = require("../model/store");
 const Debug_Temp = require("../model/debugtemp")
 const { validationResult } = require("express-validator");
-console.log(process.env.MONGODB_URI);
-const HereInf = require("../model/hereinf");
+console.log("process.env.MONGODB_URI");
+//const HereInf = require("../model/hereinf");
 const Reason = require("../model/reason");
 const Logged_routing_request = require("../model/loggedroutingrequests");
 /**
@@ -331,35 +331,35 @@ exports.getReason = async(req,res) => {
  *       - bearerAuth: []
  */
 
-exports.getHereInf = async(req,res) => {
-  let userId = req.user.userId;
-  let success_status, failed_status;
-  try {
-    // fetching user using user id
-    const user = await User.findOne({ _id: userId });
-    // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-    }
-    const hereInf = await HereInf.find({AppID:{$ne:55}})
-    res.status(200).send({
-      status: success_status,
-      statusCode: 200,
-      data: hereInf,
-    });
-  } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
-  }
-}
+// exports.getHereInf = async(req,res) => {
+//   let userId = req.user.userId;
+//   let success_status, failed_status;
+//   try {
+//     // fetching user using user id
+//     const user = await User.findOne({ _id: userId });
+//     // checking for user language
+//     if (user.Language == 1) {
+//       success_status = process.env.SUCCESS_STATUS_ENGLISH;
+//       failed_status = process.env.FAILED_STATUS_ENGLISH;
+//     } else if (user.Language == 2) {
+//       success_status = process.env.SUCCESS_STATUS_SPANISH;
+//       failed_status = process.env.FAILED_STATUS_SPANISH;
+//     } else {
+//       success_status = process.env.SUCCESS_STATUS_ENGLISH;
+//       failed_status = process.env.FAILED_STATUS_ENGLISH;
+//     }
+//     const hereInf = await HereInf.find({AppID:{$ne:55}})
+//     res.status(200).send({
+//       status: success_status,
+//       statusCode: 200,
+//       data: hereInf,
+//     });
+//   } catch (err) {
+//     res
+//       .status(400)
+//       .send({ status: failed_status, statusCode: 400, error: err });
+//   }
+// }
 
 /**
  * @swagger
