@@ -7,6 +7,7 @@ const UserImage = require("../model/userimage");
 const Store = require("../model/store");
 const Debug_Temp = require("../model/debugtemp")
 const { validationResult } = require("express-validator");
+console.log(process.env.MONGODB_URI);
 const HereInf = require("../model/hereinf");
 const Reason = require("../model/reason");
 const Logged_routing_request = require("../model/loggedroutingrequests");

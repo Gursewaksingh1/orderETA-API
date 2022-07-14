@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const bodyparser = require('body-parser');
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3000;
 const mongoose = require('mongoose');
 const dotenv = require("dotenv");
 const multer = require("multer");
@@ -24,6 +24,7 @@ const fileFilter=(req, file, cb) => {
     cb(null, false);
   }
 }
+console.log("helo world");
 const options = {
 
   definition: {
