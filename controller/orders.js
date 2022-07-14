@@ -166,15 +166,13 @@ exports.getOrders = async (req, res) => {
         error: No_order_available,
       });
     }
-    res
-      .status(200)
-      .send({
-        status: success_status,
-        statusCode: 200,
-        order_length,
-        store,
-        data: { user, orders },
-      });
+    res.status(200).send({
+      status: success_status,
+      statusCode: 200,
+      order_length,
+      store,
+      data: { user, orders },
+    });
   } catch (err) {
     res
       .status(400)
@@ -308,15 +306,13 @@ exports.get_orders_by_scan = async (req, res) => {
         error: No_order_available,
       });
     }
-    res
-      .status(200)
-      .send({
-        status: success_status,
-        statusCode: 200,
-        order_length,
-        store,
-        data: orders,
-      });
+    res.status(200).send({
+      status: success_status,
+      statusCode: 200,
+      order_length,
+      store,
+      data: orders,
+    });
   } catch (err) {
     res
       .status(400)
@@ -406,8 +402,19 @@ exports.getOrderByOrderId = async (req, res) => {
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.byseq;
-  let success_status, failed_status, invaild_seq;
+  let success_status, failed_status, invaild_seq, invalid_box_status;
   let userId = req.user.userId;
+  let acceptedStatus = [
+    "NOT_CONFIRMED",
+    "MANUALLY_DELETED",
+    "NOT_SCANNED_OUT",
+    "NOT_DELIVERED",
+    "RETURNED",
+    "SCANNED_OUT",
+    "SCANNED_IN",
+    "MANUALLY_SCANNED_OUT",
+  ];
+  let statusMatch = 0;
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -416,16 +423,21 @@ exports.getOrderBySeq = async (req, res) => {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
       invaild_seq = process.env.INVAILD_SEQ_ENGLISH;
+      invalid_box_status = process.env.INVALID_BOX_STATUS_ENGLISH;
     } else if (user.Language == 2) {
       success_status = process.env.SUCCESS_STATUS_SPANISH;
       failed_status = process.env.FAILED_STATUS_SPANISH;
       invaild_seq = process.env.INVAILD_SEQ_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      invaild_seq = process.env.INVAILD_SEQ_ENGLISH;
+      invalid_box_status = process.env.INVALID_BOX_STATUS_SPANISH;
     }
-    const orders = await Orders.find({
+    store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        strict_box_scan_in: "strict_box_scan_in",
+      }
+    );
+    const order = await Orders.findOne({
       Seq: seq,
       $and: [
         {
@@ -440,18 +452,39 @@ exports.getOrderBySeq = async (req, res) => {
         },
       ],
     });
-    if (orders.length == 0) {
+
+    if (order == null) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
         error: invaild_seq,
       });
     }
+    //after getting order with seq number checking if boxes of order conatins any status
+    //of above array
 
+    if (order.boxes.length > 0 && store.strict_box_scan_in == 1) {
+      acceptedStatus.forEach((status) => {
+        order.boxes.forEach((box) => {
+          if (status == box.status.type) {
+            statusMatch++;
+          }
+        });
+      });
+    }
+    console.log(invalid_box_status);
+    if (statusMatch > 0) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invalid_box_status,
+      });
+    }
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200, data: orders });
+      .send({ status: success_status, statusCode: 200, data: order });
   } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
@@ -634,7 +667,7 @@ async function findData(Modal, queryObj = {}, reqFieldObj = {}) {
     for (i = 0; i < reqFields.length; i++) {
       str = str + reqFields[i] + " ";
     }
-    data = await Modal.find(queryObj).select(str);
+    data = await Modal.findOne(queryObj).select(str);
   }
   return data;
 }
