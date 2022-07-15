@@ -24,7 +24,6 @@ const fileFilter=(req, file, cb) => {
     cb(null, false);
   }
 }
-console.log("helo world");
 const options = {
 
   definition: {

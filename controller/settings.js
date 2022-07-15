@@ -93,11 +93,6 @@ exports.updateLanguage = async (req, res) => {
         statusCode: 400,
         error: update_user_failed,
       });
-      res.status(200).send({
-        status: success_status,
-        statusCode: 200,
-        data: user.Language,
-      });
     }
   } catch (err) {
     res

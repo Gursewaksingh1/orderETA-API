@@ -472,7 +472,6 @@ exports.getOrderBySeq = async (req, res) => {
         });
       });
     }
-    console.log(invalid_box_status);
     if (statusMatch > 0) {
       return res.status(404).send({
         status: failed_status,
@@ -537,6 +536,59 @@ exports.getOrderByCurrentDate = async (req, res) => {
   }
 };
 
+exports.deleteOrder = async (req, res) => {
+  let success_status,
+    failed_status,
+    order_deleted_success,
+    order_deleted_failed;
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
+    order_deleted_success =
+      user.Language == 1
+        ? process.env.DELETE_ORDER_ENGLISH
+        : process.env.DELETE_ORDER_SPANISH;
+    order_deleted_failed =
+      user.Language == 1
+        ? process.env.DELETE_ORDER_FAILED_ENGLISH
+        : process.env.DELETE_ORDER_FAILED_SPANISH;
+    //delete order query
+    const order = await Orders.findOneAndUpdate(
+      { $and: [{ order_id: req.body.orderId }, { user_id: req.user.userId }] },
+      {
+        $set: {
+          deleted_from_device: 1,
+          date_sent_to_device: moment().format("yyyy-MM-dd-HH:mm:ss"),
+        },
+      },
+      { new: true }
+    );
+    if (order == null) {
+      res.status(400).send({
+        status: failed_status,
+        statusCode: 400,
+        error: order_deleted_failed,
+      });
+    } else if (order.deleted_from_device == 1) {
+      res.status(200).send({
+        status: success_status,
+        statusCode: 200,
+        data: order_deleted_success,
+      });
+    }
+  } catch (err) {
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+};
 exports.confirmBarCode = async (req, res) => {
   let success_status, failed_status, err_barcode;
   let userId = req.user.userId;
@@ -586,6 +638,118 @@ exports.confirmBarCode = async (req, res) => {
   }
 };
 
+exports.scanOrderBox = async(req,res) => {
+  let success_status, failed_status, order_assigned_success, invaild_orderId;
+  let userId = req.user.userId;
+  let orderId = req.body.orderId,storeId = req.body.storeId
+  try {
+    //fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
+    order_assigned_success =
+      user.Language == 1
+        ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
+        : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
+    invaild_orderId =
+      user.Language == 1
+        ? process.env.ERROR_MSG_ENGLISH
+        : process.env.ERROR_MSG_SPANISH;
+
+    //fetching order
+    let updated_order = await Orders.findOne({ order_id:orderId,store_id:storeId});
+    //checking if null
+    if (updated_order == null) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invaild_orderId,
+      });  
+    }
+    if(updated_order.boxes[sequence-1] !=undefined) {
+      statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
+    }
+  } catch (err) {
+    res
+    .status(400)
+    .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
+exports.manullyConfirmOrder = async (req, res) => {
+  let success_status, failed_status, invaild_orderId,order_assigned_success, statusMatch;
+  let userId = req.user.userId;
+  let refusedStatus = [
+    "SCANNED_OUT",
+    "MANUALLY_SCANNED_OUT",
+    "MANUALLY_DELIVERED",
+  ];
+  try {
+    //fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    // checking for user language
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
+        order_assigned_success =
+      user.Language == 1
+        ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
+        : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
+    invaild_orderId =
+      user.Language == 1
+        ? process.env.ERROR_MSG_ENGLISH
+        : process.env.ERROR_MSG_SPANISH;
+//fetching order
+    let updated_order = await Orders.findOne({ order_id: req.body.orderId,user_id:req.user.userId });
+    //checking if null
+    if (updated_order == null) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invaild_orderId,
+      });
+    }
+    //checking if refused status matched or not
+    statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
+    //checking if order contain any boxes or not 
+    if (updated_order.boxes.length !== 0 && !statusMatch) {
+      for (i = 0; i < updated_order.boxes.length; i++) {
+        updated_order.boxes[i].status.type = "type";
+        updated_order.boxes[i].status.description = "description";
+        updated_order.boxes[i].status.driver_id = "driverId";
+      }
+      updated_order.save();
+      res.status(200).send({
+        status: success_status,
+        statusCode: 200,
+        message: order_assigned_success,
+        data: updated_order.boxes,
+      });
+    } else {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: invaild_orderId,
+      });
+    }
+  } catch (err) {
+    console.log(err);
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+};
 exports.listOrders = async (req, res) => {
   let success_status, failed_status, order_assigned_success, invaild_orderId;
   let userId = req.user.userId;
@@ -593,29 +757,31 @@ exports.listOrders = async (req, res) => {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH;
-      invaild_orderId = process.env.ERROR_MSG_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
-      invaild_orderId = process.env.ERROR_MSG_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      order_assigned_success = process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH;
-      invaild_orderId = process.env.ERROR_MSG_ENGLISH;
-    }
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
+    order_assigned_success =
+      user.Language == 1
+        ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
+        : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
+    invaild_orderId =
+      user.Language == 1
+        ? process.env.ERROR_MSG_ENGLISH
+        : process.env.ERROR_MSG_SPANISH;
+
     const orderId = req.body.orderId;
     const driverId = req.user.userId;
     let boxIds = [];
     //fetching orders according to id
 
-    let order = await Orders.findOne({ order_id: orderId });
-    if (order == null) {
+    //looping to update each box with driver id
+    let updated_order = await Orders.findOne({ order_id: orderId });
+    if (updated_order == null) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -623,12 +789,11 @@ exports.listOrders = async (req, res) => {
       });
     }
     // getting all boxIds and store them in array
-    if (order.boxes.length !== 0) {
-      for (i = 0; i < order.boxes.length; i++) {
-        boxIds.push(order.boxes[i]._id);
+    if (updated_order.boxes.length !== 0) {
+      for (i = 0; i < updated_order.boxes.length; i++) {
+        boxIds.push(updated_order.boxes[i]._id);
       }
-      //looping to update each box with driver id
-      let updated_order = await Orders.findOne({ order_id: orderId });
+
       for (i = 0; i < boxIds.length; i++) {
         updated_order.boxes[i].status.type = type;
         updated_order.boxes[i].status.description = description;
@@ -670,4 +835,15 @@ async function findData(Modal, queryObj = {}, reqFieldObj = {}) {
     data = await Modal.findOne(queryObj).select(str);
   }
   return data;
+}
+
+function checkBoxStatus(statusArray, boxes) {
+  statusArray.forEach((status) => {
+    boxes.forEach((box) => {
+      if (status == box.status.type) {
+        return true;
+      }
+    });
+  });
+  return false;
 }
