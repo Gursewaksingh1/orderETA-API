@@ -638,10 +638,11 @@ exports.confirmBarCode = async (req, res) => {
   }
 };
 
-exports.scanOrderBox = async(req,res) => {
+exports.scanOrderBox = async (req, res) => {
   let success_status, failed_status, order_assigned_success, invaild_orderId;
   let userId = req.user.userId;
-  let orderId = req.body.orderId,storeId = req.body.storeId
+  let orderId = req.body.orderId,
+    storeId = req.body.storeId;
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -664,26 +665,94 @@ exports.scanOrderBox = async(req,res) => {
         : process.env.ERROR_MSG_SPANISH;
 
     //fetching order
-    let updated_order = await Orders.findOne({ order_id:orderId,store_id:storeId});
+    let updated_order = await Orders.findOne({
+      order_id: orderId,
+      store_id: storeId,
+    });
     //checking if null
     if (updated_order == null) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
         error: invaild_orderId,
-      });  
+      });
     }
-    if(updated_order.boxes[sequence-1] !=undefined) {
+    if (updated_order.boxes[sequence - 1] != undefined) {
       statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
     }
   } catch (err) {
     res
-    .status(400)
-    .send({ status: failed_status, statusCode: 400, error: err });
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
+
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     manully_confirm:
+ *       type: object
+ *       required:
+ *         - orderId
+ *       properties:
+ *         orderId:
+ *           type: string
+ *           description: order id
+ *         reason:
+ *           type: string
+ *           description: reason for manully confirm order
+ *       example:
+ *           orderId: 975
+ *           reason: Barcode is damaged
+ *           
+ */ 
+/**
+ * @swagger
+ * /orders/manullyconfirm:
+ *   post:
+ *     summary: manully confirm order
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/manully_confirm'
+ *     responses:
+ *       200:
+ *         description: order confirmed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/manully_confirm'
+ *       403:
+ *         description: invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/manully_confirm'
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/manully_confirm'
+ */
+
 exports.manullyConfirmOrder = async (req, res) => {
-  let success_status, failed_status, invaild_orderId,order_assigned_success, statusMatch;
+  let success_status,
+    failed_status,
+    invaild_orderId,
+    order_assigned_success,
+    statusMatch;
+    let reason = req.body.reason
   let userId = req.user.userId;
   let refusedStatus = [
     "SCANNED_OUT",
@@ -702,7 +771,7 @@ exports.manullyConfirmOrder = async (req, res) => {
       user.Language == 1
         ? process.env.FAILED_STATUS_ENGLISH
         : process.env.FAILED_STATUS_SPANISH;
-        order_assigned_success =
+    order_assigned_success =
       user.Language == 1
         ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
         : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
@@ -710,8 +779,11 @@ exports.manullyConfirmOrder = async (req, res) => {
       user.Language == 1
         ? process.env.ERROR_MSG_ENGLISH
         : process.env.ERROR_MSG_SPANISH;
-//fetching order
-    let updated_order = await Orders.findOne({ order_id: req.body.orderId,user_id:req.user.userId });
+    //fetching order
+    let updated_order = await Orders.findOne({
+      order_id: req.body.orderId,
+      user_id: req.user.userId,
+    });
     //checking if null
     if (updated_order == null) {
       return res.status(404).send({
@@ -722,12 +794,19 @@ exports.manullyConfirmOrder = async (req, res) => {
     }
     //checking if refused status matched or not
     statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
-    //checking if order contain any boxes or not 
+    //checking if order contain any boxes or not
     if (updated_order.boxes.length !== 0 && !statusMatch) {
       for (i = 0; i < updated_order.boxes.length; i++) {
-        updated_order.boxes[i].status.type = "type";
-        updated_order.boxes[i].status.description = "description";
-        updated_order.boxes[i].status.driver_id = "driverId";
+        updated_order.boxes[i].status.type = "MANUALLY_CONFIRMED";
+        if(reason == undefined) {
+          updated_order.boxes[i].status.description =
+          "Box manually confirmed by non scanning user.";
+        } else {
+          updated_order.boxes[i].status.description =
+          "Box is manually confirmed. The driver's reason:"+reason
+        }
+
+        updated_order.boxes[i].status.driver_id = req.user.userId;
       }
       updated_order.save();
       res.status(200).send({

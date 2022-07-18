@@ -7,6 +7,7 @@ const {
   order,
   validateSeqNumber,
   validate_barCode,
+  validate_reason_for_manully_confirm_order
 } = require("../validatorSchema/validationrules");
 
 router.get("/", isAuth, ordersController.getOrders);
@@ -29,10 +30,11 @@ router.post(
   validate,
   ordersController.listOrders
 );
+
 router.put(
-  "/manullyconfirmorder",
+  "/manullyconfirm",
   isAuth,
-  order(),
+  validate_reason_for_manully_confirm_order(),
   validate,
   ordersController.manullyConfirmOrder
 );

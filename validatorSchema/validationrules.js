@@ -182,6 +182,34 @@ const order = () => {
   })];
 };
 
+const validate_reason_for_manully_confirm_order = () => {
+  return [check("orderId").trim() .custom(async (orderId , { req })=> {
+    const user = await User.findOne({_id:req.user.userId})
+    customVerifyLength(orderId,user,1,"orderId must not be empty","orderId No debe estar vacía")
+    
+    return orderId
+  }),
+  check("reason").custom(async (reason , { req })=> {
+    console.log(req.body.reason);
+    const user = await User.findOne({_id:req.user.userId})
+    if(reason ==undefined) {
+      return "reason"
+    }
+    if(reason.length ==0 || typeof reason !="string") {
+      if(user.Language ==1) {
+        throw Error(`reason must not be empty and it should be string`)
+      } else if (user.Language ==2) {
+        throw Error(`reason no debe estar vacío y debe ser una cuerda`)
+      } else {
+        throw Error(`reason must not be empty and it should be string`)
+      }
+    }
+    customVerifyLength(reason,user,5,"reason must not be empty","reason No debe estar vacía")
+    return reason
+  })
+];
+};
+
 const validateSeqNumber = () => {
   return [
     check("byseq").trim()
@@ -385,5 +413,6 @@ module.exports = {
   update_user_stops,
   validatedebug_temp,
   validate_logged_routing_request,
-  validateLanguage
+  validateLanguage,
+  validate_reason_for_manully_confirm_order
 };
