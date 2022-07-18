@@ -536,6 +536,63 @@ exports.getOrderByCurrentDate = async (req, res) => {
   }
 };
 
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     delete_order:
+ *       type: object
+ *       required:
+ *         - orderId
+ *       properties:
+ *         orderId:
+ *           type: string
+ *           description: order id
+ *       example:
+ *           orderId: 975
+ *           
+ */ 
+/**
+ * @swagger
+ * /orders/deleteorder:
+ *   put:
+ *     summary: delete order from user device
+ *     tags: [orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/delete_order'
+ *     responses:
+ *       200:
+ *         description: order deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/delete_order'
+ *       403:
+ *         description: invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/delete_order'
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/delete_order'
+  *     security:
+ *       - bearerAuth: []
+ */
+
 exports.deleteOrder = async (req, res) => {
   let success_status,
     failed_status,
@@ -710,9 +767,9 @@ exports.scanOrderBox = async (req, res) => {
 /**
  * @swagger
  * /orders/manullyconfirm:
- *   post:
+ *   put:
  *     summary: manully confirm order
- *     tags: [user]
+ *     tags: [orders]
  *     requestBody:
  *       required: true
  *       content:
@@ -744,6 +801,8 @@ exports.scanOrderBox = async (req, res) => {
  *               type: object
  *               items:
  *                 $ref: '#/components/schemas/manully_confirm'
+  *     security:
+ *       - bearerAuth: []
  */
 
 exports.manullyConfirmOrder = async (req, res) => {
