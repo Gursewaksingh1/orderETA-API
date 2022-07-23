@@ -15,7 +15,7 @@ router.get("/", isAuth, ordersController.getOrders);
 router.get("/byscan", isAuth, ordersController.get_orders_by_scan);
 
 router.get("/currentdate", isAuth, ordersController.getOrderByCurrentDate);
-
+router.get("/scanbarcode", isAuth, ordersController.scanOrderBox);
 router.post(
   "/confirmbarcode",
   isAuth,

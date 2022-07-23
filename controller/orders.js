@@ -550,8 +550,8 @@ exports.getOrderByCurrentDate = async (req, res) => {
  *           description: order id
  *       example:
  *           orderId: 975
- *           
- */ 
+ *
+ */
 /**
  * @swagger
  * /orders/deleteorder:
@@ -589,7 +589,7 @@ exports.getOrderByCurrentDate = async (req, res) => {
  *               type: object
  *               items:
  *                 $ref: '#/components/schemas/delete_order'
-  *     security:
+ *     security:
  *       - bearerAuth: []
  */
 
@@ -696,10 +696,23 @@ exports.confirmBarCode = async (req, res) => {
 };
 
 exports.scanOrderBox = async (req, res) => {
-  let success_status, failed_status, order_assigned_success, invaild_orderId;
-  let userId = req.user.userId;
-  let orderId = req.body.orderId,
-    storeId = req.body.storeId;
+  let success_status, failed_status, order_assigned_success, invaild_orderId,statusMatch =false;
+  let userId = req.user.userId,flag=false;
+  let store, storeId, orderId, boxNumber;
+ let components = [], buchbarcode,barcodeTestString = req.body.barcodeTestString
+  let acceptedStatus = [
+    "IN_STORE",
+    "NOT_CONFIRMED",
+    "MANUALLY_DELETED",
+    "NOT_SCANNED_OUT",
+    "NOT_DELIVERED",
+    "RETURNED",
+    "SCANNED_OUT",
+    "MANUALLY_SCANNED_OUT",
+    "MANUALLY_DELIVERED",
+    "SCANNED_IN"
+  ];
+
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -721,23 +734,229 @@ exports.scanOrderBox = async (req, res) => {
         ? process.env.ERROR_MSG_ENGLISH
         : process.env.ERROR_MSG_SPANISH;
 
-    //fetching order
-    let updated_order = await Orders.findOne({
-      order_id: orderId,
-      store_id: storeId,
-    });
-    //checking if null
-    if (updated_order == null) {
+    store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        barcode_type: "barcode_type",
+        store_id: "store_id",
+        barcode_minimum: "barcode_minimum",
+        strict_box_scan_in: "strict_box_scan_in",
+      }
+    );
+    switch (store.barcode_type) {
+      case "RDT":
+        components = [];
+        components = barcodeTestString.split("/");
+        break;
+      case "CMP":
+        components = [];
+        let numberTest = barcodeTestString[0];
+        if (parseInt(numberTest) != null) {
+        } else {
+          barcodetesting = barcodeTestString.substring(1);
+        }
+        components = barcodetesting.split("-") ?? [];
+        components.unshift(store.store_id);
+        break;
+      case "BUC":
+        components = [];
+        buchbarcode = barcodeTestString.slice(0, -2);
+        if (buchbarcode[0] == 0) {
+          buchbarcode = buchbarcode.substring(1);
+        }
+        components.push(store.store_id);
+        components.push(buchbarcode);
+        if (barcodeTestString.length > 2) {
+          components.push(
+            barcodeTestString.substring(barcodeTestString.length - 2)
+          );
+        }
+        break;
+      case "STCR":
+        components = [];
+        buchbarcode = barcodeTestString.slice(0, -2);
+        components.push(store.store_id);
+        components.push(buchbarcode);
+        if (barcodeTestString.length > 2) {
+          components.push(
+            barcodeTestString.substring(barcodeTestString.length - 2)
+          );
+        }
+        break;
+      case "MICRO":
+        components = [];
+        components.push(store.store_id);
+        buchbarcode = barcodeTestString;
+        if (buchbarcode.includes("RX")) {
+          buchbarcode = barcodeTestString.slice(0, -2);
+        }
+        components.push(buchbarcode);
+        components.push("01");
+        break;
+      case "RX30":
+        components = [];
+        components.push(store.store_id);
+        if (barcodeTestString.length > 8) {
+          let barcodeTestString2 = barcodeTestString.substring(4);
+          barcodeTestString2 = barcodeTestString2.slice(0, -1);
+          components.push(barcodeTestString2);
+        } else {
+          components.push(barcodeTestString.slice(0, -2));
+        }
+        components.push("01");
+        break;
+      case "IKON":
+        components = [];
+        components = barcodeTestString.split("-");
+        components.unshift(store.store_id);
+        components.push("-01");
+        break;
+      default:
+        components = [];
+        components.unshift(store.store_id);
+        components.push(barcodeTestString);
+        components.push("-01");
+        break;
+    }
+
+    if (barcodeTestString.length < store.barcode_minimum) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error: invaild_orderId,
+        error:
+          "Invalid barcode barcode length is less then logged in user's store's minimum length of barcode",
+      });
+    } else if (store.barcode_type == "RDT" && barcodetesting.includes("/") == false) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: "Invalid barcode",
+      });
+    } else {
+      if (components.length != 3) {
+        return res.status(404).send({
+          status: failed_status,
+          statusCode: 404,
+          error: "Invalid barcode please scan again barcode is not complete",
+        });
+      } else if (user.store_id != components[0]) {
+        return res.status(404).send({
+          status: failed_status,
+          statusCode: 404,
+          error: "Invalid barcode does not match logged in user's store",
+        });
+      } else if (components[2] == null) {
+        return res.status(404).send({
+          status: failed_status,
+          statusCode: 404,
+          error: "Invalid barcode",
+        });
+      }
+    }
+    storeId = components[0];
+    orderId = components[1];
+    boxNumber = parseInt(components[2]);
+    const order = await Orders.findOne({
+      store_id: storeId,
+      order_id: orderId,
+    });
+    //if order is null 
+    if(order ==null) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: "Invalid barcode",
+      });
+    } else if (order.boxes.length ==0) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: "Invalid barcode empty boxes",
       });
     }
-    if (updated_order.boxes[sequence - 1] != undefined) {
-      statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
+     if (
+      req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
+      order.boxes[boxNumber - 1].status.type == ("SCANNED_IN" || "MANUALLY_CONFIRMED")  //the driver id is also same as logged in user id
+    ) {
+      return res.status(400).send({
+        status: failed_status,
+        statusCode: 400,
+        error: "DUPLICATE SCAN",
+      });
     }
+    //if box number is zero throw error
+    if (boxNumber == 0) {
+      return res.status(400).send({
+        status: failed_status,
+        statusCode: 400,
+        error: "BOX NUMBER IS ZERO",
+      });
+    }
+
+    //strict_box_scan_in getting from store db
+    if (store.strict_box_scan_in == 1) {
+      acceptedStatus = [
+        "IN_STORE",
+        "NOT_CONFIRMED",
+        "MANUALLY_DELETED",
+        "NOT_SCANNED_OUT",
+        "NOT_DELIVERED",
+        "RETURNED",
+        "SCANNED_IN"
+      ];
+    }
+
+    //checking if user scanning this order box first time or not and flag true means user already have scanned some boxes
+    // so we would not check this time if user is scanning another driver order and we would not check for oldest orders this time
+    // only when user first time scan order that time we will check for those conditions 
+    for(i=0;i<order.boxes.length;i++) {
+      if(boxNumber != order.boxes[i].number &&order.boxes[i].status.type == "SCANNED_IN") {
+        flag = true
+      }
+    }
+    //checking if accepted status matches or not
+    acceptedStatus.forEach(status => {
+      if(status == order.boxes[boxNumber-1].status.type) {
+        statusMatch = true
+      }
+    })
+    if (order.boxes.length !== 0 && statusMatch && order.status ==0) {
+
+        order.boxes[boxNumber-1].status.type = "SCANNED_IN";
+        order.boxes[boxNumber-1].status.description = "Box scanned in";
+        order.boxes[boxNumber-1].status.driver_id = req.user.userId;
+
+      order.save();
+      console.log(order.user_id.length);
+      if (req.user.userId != order.user_id && req.user.userId != undefined &&order.user_id.length != 0 && !flag) {
+        return res.status(200).send({
+          status: success_status,
+          statusCode: 200,
+          error:
+            "Not your order!  The order you just scanned:" +
+            order.fname +
+            "is not assigned to you.",
+        });
+      } else if(!flag){
+        console.log("check old orders");
+      }
+    } else {
+      //old app requirement when strict_box_scan_in ==1 then only through this response 
+      if (store.strict_box_scan_in == 1) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        error: "This box has already been scanned out in past!",
+      });
+    }
+    }
+    res
+      .status(200)
+      .send({ status: success_status, statusCode: 200, data: order.boxes, message:"you scanned order successfully" });
   } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
@@ -762,8 +981,8 @@ exports.scanOrderBox = async (req, res) => {
  *       example:
  *           orderId: 975
  *           reason: Barcode is damaged
- *           
- */ 
+ *
+ */
 /**
  * @swagger
  * /orders/manullyconfirm:
@@ -801,7 +1020,7 @@ exports.scanOrderBox = async (req, res) => {
  *               type: object
  *               items:
  *                 $ref: '#/components/schemas/manully_confirm'
-  *     security:
+ *     security:
  *       - bearerAuth: []
  */
 
@@ -811,7 +1030,7 @@ exports.manullyConfirmOrder = async (req, res) => {
     invaild_orderId,
     order_assigned_success,
     statusMatch;
-    let reason = req.body.reason
+  let reason = req.body.reason;
   let userId = req.user.userId;
   let refusedStatus = [
     "SCANNED_OUT",
@@ -857,12 +1076,12 @@ exports.manullyConfirmOrder = async (req, res) => {
     if (updated_order.boxes.length !== 0 && !statusMatch) {
       for (i = 0; i < updated_order.boxes.length; i++) {
         updated_order.boxes[i].status.type = "MANUALLY_CONFIRMED";
-        if(reason == undefined) {
+        if (reason == undefined) {
           updated_order.boxes[i].status.description =
-          "Box manually confirmed by non scanning user.";
+            "Box manually confirmed by non scanning user.";
         } else {
           updated_order.boxes[i].status.description =
-          "Box is manually confirmed. The driver's reason:"+reason
+            "Box is manually confirmed. The driver's reason:" + reason;
         }
 
         updated_order.boxes[i].status.driver_id = req.user.userId;
@@ -976,6 +1195,7 @@ async function findData(Modal, queryObj = {}, reqFieldObj = {}) {
 }
 
 function checkBoxStatus(statusArray, boxes) {
+  //console.log(statusArray);
   statusArray.forEach((status) => {
     boxes.forEach((box) => {
       if (status == box.status.type) {
@@ -984,4 +1204,23 @@ function checkBoxStatus(statusArray, boxes) {
     });
   });
   return false;
+}
+
+async function check_oldest(date,current_order,check_for_old_orders_first,Modal,query_for_user_orders,query_for_unassigned_orders) {
+  if (current_order != undefined  && check_for_old_orders_first == 1) {
+    let userOrders = await Modal.find(query_for_user_orders)
+    let unAssignedOrders = await Modal.find(query_for_unassigned_orders)
+    allOrders = [...userOrders,...unAssignedOrders]
+    console.log(allOrders);
+    allOrders = allOrders.filter(order => {
+      return new Date(order.createdAt) >date
+    })
+    console.log(allOrders);
+    allOrders = allOrders.filter(order => {
+      return order.hidden != 1
+    })
+    allOrders.sort(function (order1, order2){
+      return new Date(order1.createdAt) - new Date(order2.createdAt)
+ })
+  }
 }
