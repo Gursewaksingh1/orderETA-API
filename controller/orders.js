@@ -813,7 +813,7 @@ exports.scanOrderBox = async (req, res) => {
       }
     );
     store.check_if_order_is_too_old = store.check_if_order_is_too_old ?? 0;
-    store.check_for_old_orders_first = store.check_for_old_orders_first ?? 1;
+    store.check_for_old_orders_first = store.check_for_old_orders_first ?? 0;
     store.old_order_time = store.old_order_time ?? 0;
     console.log(store.old_order_time ?? 0);
     switch (store.barcode_type) {
