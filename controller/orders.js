@@ -1115,7 +1115,7 @@ exports.scanOrderBox = async (req, res) => {
           query_for_user_orders,
           query_for_unassigned_orders
         );
-        if (found_old_order) {
+        if (found_old_order === true) {
           return res.status(200).send({
             status: success_status,
             statusCode: 200,
@@ -1417,10 +1417,10 @@ async function check_oldest(
     boxes_of_old_order,
     oldest_order;
   //checking if check_for_old_orders_first is allowed by store or not
-  console.log(query_for_user_orders, query_for_unassigned_orders);
+  console.log(check_for_old_orders_first);
+  console.log("check_for_old_orders_first");
   if (current_order != undefined && check_for_old_orders_first == 1) {
     //getting user orders and unassigned orders
-
     let userOrders = await Orders.find(query_for_user_orders);
 
     let unAssignedOrders = await Orders.find(query_for_unassigned_orders);
