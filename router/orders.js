@@ -23,12 +23,12 @@ router.post(
   validate,
   ordersController.confirmBarCode
 );
-router.post(
-  "/listorders",
+router.put(
+  "/resetorder",
   isAuth,
   order(),
   validate,
-  ordersController.listOrders
+  ordersController.resetOrder
 );
 
 router.put(

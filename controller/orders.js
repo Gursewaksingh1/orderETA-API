@@ -2,6 +2,7 @@ const User = require("../model/user");
 const Orders = require("../model/orders");
 const Store = require("../model/store");
 const moment = require("moment");
+const { query } = require("express");
 
 /**
  * @swagger
@@ -221,9 +222,6 @@ exports.get_orders_by_scan = async (req, res) => {
   let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
   let order_length;
-  let datetime_created_check = moment()
-    .subtract(1, "days")
-    .format(process.env.YYYYMMDD);
 
   try {
     pageNo = parseInt(pageNo);
@@ -266,6 +264,16 @@ exports.get_orders_by_scan = async (req, res) => {
       }
     );
 
+    query = {
+      store_id: user.store_id,
+      visited: { $ne: 1 },
+      route_started: { $eq: null },
+      driver_string: { $eq: null },
+      datetime_created: {
+        $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+      },
+    };
+    //change in datetime_created if load_in_late_orders_too is not eq to one
     if (user.load_in_late_orders_too != 1) {
       query = {
         store_id: user.store_id,
@@ -276,7 +284,9 @@ exports.get_orders_by_scan = async (req, res) => {
         $and: [
           {
             datetime_created: {
-              $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+              $gte: moment()
+                .subtract(1, "days")
+                .format(process.env.YYYYMMDD),
             },
           },
           {
@@ -755,9 +765,19 @@ exports.confirmBarCode = async (req, res) => {
 exports.scanOrderBox = async (req, res) => {
   let success_status,
     failed_status,
-    order_assigned_success,
-    invaild_orderId,
-    statusMatch = false;
+    box_scan_success,
+    invalid_barcode_len,
+    invalid_barcode,
+    uncomplete_barcode,
+    invalid_storeid,
+    invalid_boxno,
+    duplicate_scan,
+    order_is_young_msg,
+    order_is_old_msg,
+    wrong_boxno,
+    found_old_order_msg,
+  another_driver_order,
+  statusMatch = false;
   let userId = req.user.userId,
     flag = false;
   let store, storeId, orderId, boxNumber;
@@ -797,6 +817,54 @@ exports.scanOrderBox = async (req, res) => {
       user.Language == 1
         ? process.env.ERROR_MSG_ENGLISH
         : process.env.ERROR_MSG_SPANISH;
+    invalid_barcode_len =
+      user.Language == 1
+        ? process.env.INVALID_BARCODE_LEN_ENGLISH
+        : process.env.INVALID_BARCODE_LEN_SPANISH;
+    invalid_barcode =
+      user.Language == 1
+        ? process.env.INVALID_BARCODE_ENGLISH
+        : process.env.INVALID_BARCODE_SPANISH;
+    uncomplete_barcode =
+      user.Language == 1
+        ? process.env.UNCOMPLETE_BARCODE_ENGLISH
+        : process.env.UNCOMPLETE_BARCODE_SPANISH;
+    invalid_storeid =
+      user.Language == 1
+        ? process.env.INVAILD_STOREID_ENGLISH
+        : process.env.INVAILD_STOREID_SPANISH;
+    invalid_boxno =
+      user.Language == 1
+        ? process.env.INVALID_BOXNO_ENGLISH
+        : process.env.INVALID_BOXNO_SPANISH;
+    duplicate_scan =
+      user.Language == 1
+        ? process.env.DUPLICATE_SCAN_ENGLISH
+        : process.env.DUPLICATE_SCAN_SPANISH;
+    another_driver_order =
+      user.Language == 1
+        ? process.env.ANOTHER_DRIVER_ORDER_ENGLISH
+        : process.env.ANOTHER_DRIVER_ORDER_SPANISH;
+    wrong_boxno =
+      user.Language == 1
+        ? process.env.WRONG_BOXNO_ENGLISH
+        : process.env.WRONG_BOXNO_SPANISH;
+    found_old_order_msg =
+      user.Language == 1
+        ? process.env.FOUND_OLDEST_ORDER_ENGLISH
+        : process.env.FOUND_OLDEST_ORDER_SPANISH;
+    order_is_old_msg =
+      user.Language == 1
+        ? process.env.FORDER_IS_OLD_ENGLISH
+        : process.env.ORDER_IS_OLD_SPANISH;
+    order_is_young_msg =
+      user.Language == 1
+        ? process.env.ORDER_IS_YOUNG_ENGLISH
+        : process.env.ORDER_IS_YOUNG_SPANISH;
+    box_scan_success =
+      user.Language == 1
+        ? process.env.BOX_SCAN_SUCCESS_ENGLISH
+        : process.env.BOX_SCAN_SUCCESS_SPANISH;
 
     store = await findData(
       Store,
@@ -810,12 +878,19 @@ exports.scanOrderBox = async (req, res) => {
         old_order_time: "old_order_time",
         check_for_old_orders_first: "check_for_old_orders_first",
         check_if_order_is_too_old: "check_if_order_is_too_old",
+        young_order_time: "young_order_time",
+        check_if_order_is_too_young: "check_if_order_is_too_young",
       }
     );
+    //if these fields not present in store db
+    store.young_order_time = store.young_order_time ?? 0;
+    store.check_if_order_is_too_young = store.check_if_order_is_too_young ?? 0;
     store.check_if_order_is_too_old = store.check_if_order_is_too_old ?? 0;
     store.check_for_old_orders_first = store.check_for_old_orders_first ?? 0;
     store.old_order_time = store.old_order_time ?? 0;
-    console.log(store.old_order_time ?? 0);
+    //converting barcodeTestString into string in case front end send it as number
+    barcodeTestString = barcodeTestString.toString();
+
     switch (store.barcode_type) {
       case "RDT":
         components = [];
@@ -823,11 +898,14 @@ exports.scanOrderBox = async (req, res) => {
         break;
       case "CMP":
         components = [];
-        let numberTest = barcodeTestString[0];
-        if (parseInt(numberTest) != null) {
+        let barcodetesting
+        let numberTest =barcodeTestString[0]; 
+        if (!isNaN(numberTest)) { 
+          barcodetesting = barcodeTestString
         } else {
           barcodetesting = barcodeTestString.substring(1);
         }
+      
         components = barcodetesting.split("-") ?? [];
         components.unshift(store.store_id);
         break;
@@ -896,46 +974,47 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error:
-          "Invalid barcode barcode length is less then logged in user's store's minimum length of barcode",
+        error: invalid_barcode_len,
       });
     } else if (
       store.barcode_type == "RDT" &&
-      barcodetesting.includes("/") == false
+      barcodeTestString.includes("/") == false
     ) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error: "Invalid barcode",
+        error: invalid_barcode,
       });
     } else {
       if (components.length != 3) {
         return res.status(404).send({
           status: failed_status,
           statusCode: 404,
-          error: "Invalid barcode please scan again barcode is not complete",
+          error: uncomplete_barcode,
         });
       } else if (user.store_id != components[0]) {
         return res.status(404).send({
           status: failed_status,
           statusCode: 404,
-          error: "Invalid barcode does not match logged in user's store",
+          error: invalid_storeid,
         });
       } else if (components[2] == null) {
         return res.status(404).send({
           status: failed_status,
           statusCode: 404,
-          error: "Invalid barcode",
+          error: invalid_boxno,
         });
       }
     }
     storeId = components[0];
     orderId = components[1];
     boxNumber = parseInt(components[2]);
+    //fetching order
     const order = await Orders.findOne({
       store_id: storeId,
       order_id: orderId,
     });
+
     //if order is null
     if (order == null) {
       return res.status(404).send({
@@ -943,11 +1022,11 @@ exports.scanOrderBox = async (req, res) => {
         statusCode: 404,
         error: "Invalid barcode",
       });
-    } else if (order.boxes.length == 0) {
+    } else if (order.boxes.length == 0) { //if box arr exist but is empty
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error: "Invalid barcode empty boxes",
+        error: "Invalid barcode! empty boxes",
       });
     }
     if (
@@ -958,7 +1037,8 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
-        error: "DUPLICATE SCAN",
+        data: order,
+        error: duplicate_scan,
       });
     }
     //if box number is zero throw error
@@ -966,7 +1046,8 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
-        error: "BOX NUMBER IS ZERO",
+        data: order,
+        error: wrong_boxno,
       });
     }
 
@@ -1006,7 +1087,7 @@ exports.scanOrderBox = async (req, res) => {
       order.boxes[boxNumber - 1].status.driver_id = req.user.userId;
 
       order.save();
-      console.log(order.user_id.length);
+      //after saving order in db check if order belongs to someone else & is first time scanning the order
       if (
         req.user.userId != order.user_id &&
         req.user.userId != undefined &&
@@ -1016,13 +1097,10 @@ exports.scanOrderBox = async (req, res) => {
         return res.status(200).send({
           status: success_status,
           statusCode: 200,
-          error:
-            "Not your order!  The order you just scanned:" +
-            order.driver_string +
-            "is not assigned to you.",
+          data: order,
+          error: another_driver_order + order.driver_string,
         });
-      } else if (!flag) {
-        console.log("check old orders");
+      } else if (!flag) { //if scanning first time order but order belongs to logged in user or anonymous 
         let yesterdayDate = moment()
           .subtract(1, "days")
           .format(process.env.YYYYMMDD);
@@ -1037,6 +1115,7 @@ exports.scanOrderBox = async (req, res) => {
               .format(process.env.YYYYMMDD);
           }
         }
+        //preparing query for fetching orders of user
         if (user.load_in_late_orders_too != 1) {
           query_for_user_orders = {
             store_id: user.store_id,
@@ -1107,7 +1186,8 @@ exports.scanOrderBox = async (req, res) => {
             ],
           };
         }
-        let found_old_order = check_oldest(
+        //pass queries and other values and if func return false then skip thsi else through response oldest order exist
+        let found_old_order = await check_oldest(
           store.old_order_time,
           yesterdayDate,
           order,
@@ -1115,12 +1195,12 @@ exports.scanOrderBox = async (req, res) => {
           query_for_user_orders,
           query_for_unassigned_orders
         );
-        if (found_old_order === true) {
+        if (found_old_order) {
           return res.status(200).send({
             status: success_status,
             statusCode: 200,
             data: found_old_order,
-            message: "Please scan oldest undelivered order",
+            message: found_old_order_msg,
           });
         }
 
@@ -1133,8 +1213,22 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(200).send({
             status: success_status,
             statusCode: 200,
-            data: found_old_order,
-            message: "ORDER OLDER THAN " + parseInt(old_order_time / 3600),
+            data: order,
+            message: order_is_old_msg + parseInt(old_order_time / 3600),
+          });
+        }
+
+        let order_is_young = check_if_order_is_young(
+          store.check_if_order_is_too_young,
+          store.young_order_time,
+          order
+        );
+        if (order_is_young) {
+          return res.status(200).send({
+            status: success_status,
+            statusCode: 200,
+            data: order,
+            message: order_is_young_msg,
           });
         }
       }
@@ -1151,8 +1245,8 @@ exports.scanOrderBox = async (req, res) => {
     res.status(200).send({
       status: success_status,
       statusCode: 200,
-      data: order.boxes,
-      message: "you scanned order successfully",
+      data: order,
+      message: box_scan_success,
     });
   } catch (err) {
     console.log(err);
@@ -1306,8 +1400,64 @@ exports.manullyConfirmOrder = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-exports.listOrders = async (req, res) => {
-  let success_status, failed_status, order_assigned_success, invaild_orderId;
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     reset_order:
+ *       type: object
+ *       required:
+ *         - orderId
+ *         - storeId
+ *       properties:
+ *         orderId:
+ *           type: string
+ *           description: order id
+ *         storeId:
+ *           type: string
+ *           description: store id
+ *       example:
+ *           orderId: "99987010934"
+ *           storeId: 24
+ *
+ */
+/**
+ * @swagger
+ * /orders/restorder:
+ *   put:
+ *     summary: this endpoint is used when user scan someone else's order and don't want to keep it or scans order but then closes app without start delivery
+ *     tags: [orders]
+ *     responses:
+ *       200:
+ *         description: order reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/scan_order'
+ *       403:
+ *         description: invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/scan_order'
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               items:
+ *                 $ref: '#/components/schemas/scan_order'
+ *     security:
+ *       - bearerAuth: []
+ */
+
+exports.resetOrder = async (req, res) => {
+  let success_status, failed_status, order_reset_success, invaild_orderId;
   let userId = req.user.userId;
   try {
     //fetching user using user id
@@ -1321,22 +1471,19 @@ exports.listOrders = async (req, res) => {
       user.Language == 1
         ? process.env.FAILED_STATUS_ENGLISH
         : process.env.FAILED_STATUS_SPANISH;
-    order_assigned_success =
+    order_reset_success =
       user.Language == 1
-        ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
-        : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
+        ? process.env.ORDER_RESET_SUCCESS_ENGLISH
+        : process.env.ORDER_RESET_SUCCESS_SPANISH;
     invaild_orderId =
       user.Language == 1
         ? process.env.ERROR_MSG_ENGLISH
         : process.env.ERROR_MSG_SPANISH;
 
     const orderId = req.body.orderId;
-    const driverId = req.user.userId;
-    let boxIds = [];
-    //fetching orders according to id
-
+    const storeId = req.body.storeId
     //looping to update each box with driver id
-    let updated_order = await Orders.findOne({ order_id: orderId });
+    let updated_order = await Orders.findOne({ order_id: orderId,store_id: storeId });
     if (updated_order == null) {
       return res.status(404).send({
         status: failed_status,
@@ -1344,29 +1491,29 @@ exports.listOrders = async (req, res) => {
         error: invaild_orderId,
       });
     }
+    let order_boxes = updated_order.boxes
     // getting all boxIds and store them in array
-    if (updated_order.boxes.length !== 0) {
-      for (i = 0; i < updated_order.boxes.length; i++) {
-        boxIds.push(updated_order.boxes[i]._id);
-      }
+    
+if( order_boxes.length != 0) {
 
-      for (i = 0; i < boxIds.length; i++) {
-        updated_order.boxes[i].status.type = type;
-        updated_order.boxes[i].status.description = description;
-        updated_order.boxes[i].status.driver_id = driverId;
+
+      for (i = 0; i < order_boxes.length; i++) {
+        order_boxes[i].status.type = "IN_STORE";
+        order_boxes[i].status.description = "Order has been placed. Box status has not been updated yet.";
+        order_boxes[i].status.driver_id = null;
       }
       updated_order.save();
       res.status(200).send({
         status: success_status,
         statusCode: 200,
-        message: order_assigned_success,
+        message: order_reset_success,
         data: updated_order.boxes,
       });
     } else {
       res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error: invaild_orderId,
+        error: "empty boxes array",
       });
     }
   } catch (err) {
@@ -1417,7 +1564,6 @@ async function check_oldest(
     boxes_of_old_order,
     oldest_order;
   //checking if check_for_old_orders_first is allowed by store or not
-  console.log(check_for_old_orders_first);
   console.log("check_for_old_orders_first");
   if (current_order != undefined && check_for_old_orders_first == 1) {
     //getting user orders and unassigned orders
@@ -1425,7 +1571,7 @@ async function check_oldest(
 
     let unAssignedOrders = await Orders.find(query_for_unassigned_orders);
 
-    allOrders = [...userOrders, ...unAssignedOrders];
+    let allOrders = [...userOrders, ...unAssignedOrders];
 
     //filter all orders according to createdAt date with today date
     allOrders = allOrders.filter((order) => {
@@ -1441,20 +1587,24 @@ async function check_oldest(
     });
     //checking if allOrders array have any data or not
     if (allOrders.length != 0) {
-      oldest_order = allOrders[allOrders.length - 1];
+      let oldest_order = allOrders[allOrders.length - 1];
+      // console.log(oldest_order);
       //fetching oldest_ordertime of allOrders array and converting it into date
       oldest_ordertime = new Date(oldest_order.createdAt);
+
       //fetching this_ordertime and converting it into date
       this_ordertime = new Date(current_order.createdAt);
+
       //fetching old_order_time from store and adding it with current date
       considered_old = new Date(new Date().setSeconds(old_order_time));
+
       //getting intervals
       interval1 =
         (this_ordertime.getTime() - oldest_ordertime.getTime()) / 1000;
       interval2 =
         (considered_old.getTime() - oldest_ordertime.getTime()) / 1000;
 
-      boxes_of_old_order = oldest_order.boxes;
+      let boxes_of_old_order = oldest_order.boxes;
       //checking if oldest order already got scanned or not
       if (boxes_of_old_order != undefined && boxes_of_old_order.length != 0) {
         boxes_of_old_order.forEach((box) => {
@@ -1464,13 +1614,14 @@ async function check_oldest(
           }
         });
       }
-
+      console.log(interval1, interval2);
       if (
         test_order == true &&
         current_order._id != oldest_order._id &&
         interval1 > 15 &&
         interval2 > 0
       ) {
+        console.log("oldest");
         return oldest_order;
       } else {
         return false;
@@ -1499,9 +1650,32 @@ function check_if_order_is_old(
 
 function check_if_order_is_young(
   check_if_order_is_too_young,
-  young_order_time
+  young_order_time,
+  current_order
 ) {
+//checking if check_if_order_is_too_young ==1 or not 
   if (check_if_order_is_too_young == 1) {
-    considered_young = parseInt(young_order_time) * 60;
+    let considered_young = parseInt(young_order_time) * 60;
+    let this_ordertime = new Date(current_order.createdAt ?? new Date());
+
+    //fetching old_order_time from store and subtract it with considered_young which is multi of young_order_time
+    let allowed_created_young = new Date(
+      this_ordertime.setSeconds(-considered_young)
+    );
+
+    let this_order_hidden = new Date(current_order.hide_until ?? new Date());
+
+    let allowed_hidden_young = new Date(
+      this_order_hidden.setSeconds(-considered_young)
+    );
+
+    if (
+      new Date() < allowed_hidden_young ||
+      new Date() < allowed_created_young
+    ) {
+      return true;
+    } else {
+      return false;
+    }
   }
 }
