@@ -1423,7 +1423,7 @@ exports.manullyConfirmOrder = async (req, res) => {
  */
 /**
  * @swagger
- * /orders/restorder:
+ * /orders/resetorder:
  *   put:
  *     summary: this endpoint is used when user scan someone else's order and don't want to keep it or scans order but then closes app without start delivery
  *     tags: [orders]
