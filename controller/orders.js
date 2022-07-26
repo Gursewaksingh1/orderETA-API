@@ -1435,7 +1435,7 @@ exports.manullyConfirmOrder = async (req, res) => {
  *             schema:
  *               type: object
  *               items:
- *                 $ref: '#/components/schemas/scan_order'
+ *                 $ref: '#/components/schemas/reset_order'
  *       403:
  *         description: invalid token
  *         content:
@@ -1443,7 +1443,7 @@ exports.manullyConfirmOrder = async (req, res) => {
  *             schema:
  *               type: object
  *               items:
- *                 $ref: '#/components/schemas/scan_order'
+ *                 $ref: '#/components/schemas/reset_order'
  *       422:
  *         description: validation error
  *         content:
@@ -1451,7 +1451,7 @@ exports.manullyConfirmOrder = async (req, res) => {
  *             schema:
  *               type: object
  *               items:
- *                 $ref: '#/components/schemas/scan_order'
+ *                 $ref: '#/components/schemas/reset_order'
  *     security:
  *       - bearerAuth: []
  */
