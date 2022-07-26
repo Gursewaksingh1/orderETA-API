@@ -1037,8 +1037,8 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
-        data: order,
         error: duplicate_scan,
+        data: order,
       });
     }
     //if box number is zero throw error
@@ -1046,8 +1046,8 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
-        data: order,
         error: wrong_boxno,
+        data: order,
       });
     }
 
@@ -1213,8 +1213,8 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(200).send({
             status: success_status,
             statusCode: 200,
-            data: order,
             message: order_is_old_msg + parseInt(old_order_time / 3600),
+            data: order,
           });
         }
 
@@ -1227,8 +1227,8 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(200).send({
             status: success_status,
             statusCode: 200,
-            data: order,
             message: order_is_young_msg,
+            data: order,
           });
         }
       }
@@ -1245,8 +1245,8 @@ exports.scanOrderBox = async (req, res) => {
     res.status(200).send({
       status: success_status,
       statusCode: 200,
-      data: order,
       message: box_scan_success,
+      data: order,
     });
   } catch (err) {
     console.log(err);
