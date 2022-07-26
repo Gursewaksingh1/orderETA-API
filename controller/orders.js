@@ -1427,6 +1427,12 @@ exports.manullyConfirmOrder = async (req, res) => {
  *   put:
  *     summary: this endpoint is used when user scan someone else's order and don't want to keep it or scans order but then closes app without start delivery
  *     tags: [orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/reset_order'
  *     responses:
  *       200:
  *         description: order reset successfully
