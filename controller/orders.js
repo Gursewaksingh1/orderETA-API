@@ -784,6 +784,7 @@ exports.scanOrderBox = async (req, res) => {
   let components = [],
     buchbarcode,
     barcodeTestString = req.body.barcodeTestString;
+  
   let acceptedStatus = [
     "IN_STORE",
     "NOT_CONFIRMED",
@@ -1029,24 +1030,38 @@ exports.scanOrderBox = async (req, res) => {
         error: "Invalid barcode! empty boxes",
       });
     }
+    // obj to send with each succes or failed response
+    let responseObj = {
+      message: "message",
+      case_desc: order.boxes[boxNumber-1].status.description, //storing box description
+      boxNo: boxNumber-1,
+      totalBox: order.boxes.length,
+      SeqNo: order.seq,
+      Name: order.fname+" "+order.lname,
+      streetAddress: order.street_address,
+
+    }
     if (
       req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
       order.boxes[boxNumber - 1].status.type ==
         ("SCANNED_IN" || "MANUALLY_CONFIRMED") //the driver id is also same as logged in user id
     ) {
+      responseObj.message = duplicate_scan;
+
       return res.status(400).send({
-        status: failed_status,
+        status: duplicate_scan,
         statusCode: 400,
-        error: duplicate_scan,
+        error: responseObj,
         data: order,
       });
     }
     //if box number is zero throw error
     if (boxNumber == 0) {
+      responseObj.message = wrong_boxno
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
-        error: wrong_boxno,
+        error: responseObj,
         data: order,
       });
     }
@@ -1094,11 +1109,12 @@ exports.scanOrderBox = async (req, res) => {
         order.user_id.length != 0 &&
         !flag
       ) {
-        return res.status(200).send({
-          status: success_status,
-          statusCode: 200,
-          data: order,
-          error: another_driver_order + order.driver_string,
+        responseObj.message = another_driver_order + " "+order.driver_string;
+        responseObj.case_desc = "Box scanned in";
+        return res.status(400).send({
+          status: failed_status,
+          statusCode: 400,
+          error: responseObj
         });
       } else if (!flag) { //if scanning first time order but order belongs to logged in user or anonymous 
         let yesterdayDate = moment()
@@ -1199,8 +1215,8 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(200).send({
             status: success_status,
             statusCode: 200,
-            data: found_old_order,
             message: found_old_order_msg,
+            data: found_old_order,
           });
         }
 
@@ -1214,7 +1230,6 @@ exports.scanOrderBox = async (req, res) => {
             status: success_status,
             statusCode: 200,
             message: order_is_old_msg + parseInt(old_order_time / 3600),
-            data: order,
           });
         }
 
@@ -1228,7 +1243,6 @@ exports.scanOrderBox = async (req, res) => {
             status: success_status,
             statusCode: 200,
             message: order_is_young_msg,
-            data: order,
           });
         }
       }
@@ -1242,14 +1256,15 @@ exports.scanOrderBox = async (req, res) => {
         });
       }
     }
+    responseObj.case_desc = "Box scanned in";
+    responseObj.message = box_scan_success;
     res.status(200).send({
       status: success_status,
       statusCode: 200,
-      message: box_scan_success,
+      message: responseObj,
       data: order,
     });
   } catch (err) {
-    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });

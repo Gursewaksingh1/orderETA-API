@@ -724,7 +724,7 @@ exports.login = async (req, res) => {
             let token = jwt.sign(
               { userName: user.username, userId: user._id },
               process.env.SECRET,
-              { expiresIn: 60 * 5567 }
+              { expiresIn: 60 * 5 }
             );
             //creating refresh token
             let refreshToken = jwt.sign(
