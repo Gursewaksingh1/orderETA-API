@@ -2,7 +2,8 @@ const User = require("../model/user");
 const Orders = require("../model/orders");
 const Store = require("../model/store");
 const moment = require("moment");
-const { query } = require("express");
+const BarcodeFormat = require("../model/barcodeformat");
+const { json } = require("body-parser");
 
 /**
  * @swagger
@@ -284,9 +285,7 @@ exports.get_orders_by_scan = async (req, res) => {
         $and: [
           {
             datetime_created: {
-              $gte: moment()
-                .subtract(1, "days")
-                .format(process.env.YYYYMMDD),
+              $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
             },
           },
           {
@@ -776,15 +775,18 @@ exports.scanOrderBox = async (req, res) => {
     order_is_old_msg,
     wrong_boxno,
     found_old_order_msg,
-  another_driver_order,
-  statusMatch = false;
+    another_driver_order,
+    statusMatch = false;
   let userId = req.user.userId,
     flag = false;
   let store, storeId, orderId, boxNumber;
   let components = [],
-    buchbarcode,
-    barcodeTestString = req.body.barcodeTestString;
-  
+    splitWith = [];
+  let buchbarcode;
+  let barcodeTestString = req.body.barcodeTestString;
+  let regex_arr = [];
+  const specialChars = /[`!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]/;
+  // console.log(specialChars.test(str))
   let acceptedStatus = [
     "IN_STORE",
     "NOT_CONFIRMED",
@@ -866,7 +868,10 @@ exports.scanOrderBox = async (req, res) => {
       user.Language == 1
         ? process.env.BOX_SCAN_SUCCESS_ENGLISH
         : process.env.BOX_SCAN_SUCCESS_SPANISH;
-
+    already_scanned =
+      user.Language == 1
+        ? process.env.ALREADY_SCANNED_ENGLISH
+        : process.env.ALREADY_SCANNED_SPANISH;
     store = await findData(
       Store,
       { store_id: user.store_id },
@@ -892,84 +897,137 @@ exports.scanOrderBox = async (req, res) => {
     //converting barcodeTestString into string in case front end send it as number
     barcodeTestString = barcodeTestString.toString();
 
-    switch (store.barcode_type) {
-      case "RDT":
-        components = [];
-        components = barcodeTestString.split("/");
-        break;
-      case "CMP":
-        components = [];
-        let barcodetesting
-        let numberTest =barcodeTestString[0]; 
-        if (!isNaN(numberTest)) { 
-          barcodetesting = barcodeTestString
-        } else {
-          barcodetesting = barcodeTestString.substring(1);
-        }
-      
-        components = barcodetesting.split("-") ?? [];
-        components.unshift(store.store_id);
-        break;
-      case "BUC":
-        components = [];
-        buchbarcode = barcodeTestString.slice(0, -2);
-        if (buchbarcode[0] == 0) {
-          buchbarcode = buchbarcode.substring(1);
-        }
-        components.push(store.store_id);
-        components.push(buchbarcode);
-        if (barcodeTestString.length > 2) {
+    //getting barcode format from db
+    var barcodeFormats = await BarcodeFormat.find();
+    barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
+    // console.log({barcodeFormats});
+
+    var barcodeFormatBUCH = {};
+    //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUCH") {
+        barcodeFormatBUCH = barcodeFormat;
+      }
+    });
+    //then remove BUCH record from arr
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUCH") {
+        barcodeFormats.splice(i, i);
+      }
+    });
+
+    //now push it to the array
+    barcodeFormats.push(barcodeFormatBUCH);
+    //adding values in splitWith & regex_arr & getting from barcode_format collection
+    splitWith = barcodeFormats.map((value) => value.split_with);
+    regex_arr = barcodeFormats.map((value) => value.regexformat);
+
+    //looping over regex_arr arr and comparing barcodeTestString with regex
+    regex_arr.forEach((regex, index) => {
+      console.log(barcodeTestString.match(regex));
+      if (barcodeTestString.match(regex) !== null) {  //coomparing regex with barcode
+        if(!isNaN(splitWith[index])) {
+          console.log("he");
+          buchbarcode = barcodeTestString.slice(0, - splitWith[index]);
+          components.push(buchbarcode)
           components.push(
-            barcodeTestString.substring(barcodeTestString.length - 2)
-          );
+            barcodeTestString.substring(barcodeTestString.length - splitWith[index]));
+  //checking if barcode which matched with regex has stodeId in format or not if not then add
+        if (!barcodeFormats[index].storeid_available) {
+          components.unshift(store.store_id);
         }
-        break;
-      case "STCR":
-        components = [];
-        buchbarcode = barcodeTestString.slice(0, -2);
-        components.push(store.store_id);
-        components.push(buchbarcode);
-        if (barcodeTestString.length > 2) {
-          components.push(
-            barcodeTestString.substring(barcodeTestString.length - 2)
-          );
-        }
-        break;
-      case "MICRO":
-        components = [];
-        components.push(store.store_id);
-        buchbarcode = barcodeTestString;
-        if (buchbarcode.includes("RX")) {
-          buchbarcode = barcodeTestString.slice(0, -2);
-        }
-        components.push(buchbarcode);
-        components.push("01");
-        break;
-      case "RX30":
-        components = [];
-        components.push(store.store_id);
-        if (barcodeTestString.length > 8) {
-          let barcodeTestString2 = barcodeTestString.substring(4);
-          barcodeTestString2 = barcodeTestString2.slice(0, -1);
-          components.push(barcodeTestString2);
         } else {
-          components.push(barcodeTestString.slice(0, -2));
+          
+          components = barcodeTestString.split(splitWith[index]);
+          //checking if barcode which matched with regex has stodeId in format or not if not then add
+        if (!barcodeFormats[index].storeid_available) {
+          components.unshift(store.store_id);
         }
-        components.push("01");
-        break;
-      case "IKON":
-        components = [];
-        components = barcodeTestString.split("-");
-        components.unshift(store.store_id);
-        components.push("-01");
-        break;
-      default:
-        components = [];
-        components.unshift(store.store_id);
-        components.push(barcodeTestString);
-        components.push("-01");
-        break;
-    }
+        }
+        
+        
+      }
+ 
+    });
+    console.log(components);
+    // switch (store.barcode_type) {
+    //   case "RDT":
+    //     components = [];
+    //     components = barcodeTestString.split("/");
+    //     break;
+    //   case "CMP":
+    //     components = [];
+    //     let barcodetesting
+    //     let numberTest =barcodeTestString[0];
+    //     if (!isNaN(numberTest)) {
+    //       barcodetesting = barcodeTestString
+    //     } else {
+    //       barcodetesting = barcodeTestString.substring(1);
+    //     }
+
+    //     components = barcodetesting.split("-") ?? [];
+    //     components.unshift(store.store_id);
+    //     break;
+    //   case "BUC":
+    //     components = [];
+    //     buchbarcode = barcodeTestString.slice(0, -2);
+    //     if (buchbarcode[0] == 0) {
+    //       buchbarcode = buchbarcode.substring(1);
+    //     }
+    //     components.push(store.store_id);
+    //     components.push(buchbarcode);
+    //     if (barcodeTestString.length > 2) {
+    //       components.push(
+    //         barcodeTestString.substring(barcodeTestString.length - 2)
+    //       );
+    //     }
+    //     break;
+    //   case "STCR":
+    //     components = [];
+    //     buchbarcode = barcodeTestString.slice(0, -2);
+    //     components.push(store.store_id);
+    //     components.push(buchbarcode);
+    //     if (barcodeTestString.length > 2) {
+    //       components.push(
+    //         barcodeTestString.substring(barcodeTestString.length - 2)
+    //       );
+    //     }
+    //     break;
+    //   case "MICRO":
+    //     components = [];
+    //     components.push(store.store_id);
+    //     buchbarcode = barcodeTestString;
+    //     if (buchbarcode.includes("RX")) {
+    //       buchbarcode = barcodeTestString.slice(0, -2);
+    //     }
+    //     components.push(buchbarcode);
+    //     components.push("01");
+    //     break;
+    //   case "RX30":
+    //     components = [];
+    //     components.push(store.store_id);
+    //     if (barcodeTestString.length > 8) {
+    //       let barcodeTestString2 = barcodeTestString.substring(4);
+    //       barcodeTestString2 = barcodeTestString2.slice(0, -1);
+    //       components.push(barcodeTestString2);
+    //     } else {
+    //       components.push(barcodeTestString.slice(0, -2));
+    //     }
+    //     components.push("01");
+    //     break;
+    //   case "IKON":
+    //     components = [];
+    //     components = barcodeTestString.split("-");
+    //     components.unshift(store.store_id);
+    //     components.push("-01");
+    //     break;
+    //   default:
+    //     components = [];
+    //     components.unshift(store.store_id);
+    //     components.push(barcodeTestString);
+    //     components.push("-01");
+    //     break;
+    // }
 
     if (barcodeTestString.length < store.barcode_minimum) {
       return res.status(404).send({
@@ -1023,7 +1081,8 @@ exports.scanOrderBox = async (req, res) => {
         statusCode: 404,
         error: "Invalid barcode",
       });
-    } else if (order.boxes.length == 0) { //if box arr exist but is empty
+    } else if (order.boxes.length == 0) {
+      //if box arr exist but is empty
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -1033,14 +1092,13 @@ exports.scanOrderBox = async (req, res) => {
     // obj to send with each succes or failed response
     let responseObj = {
       message: "message",
-      case_desc: order.boxes[boxNumber-1].status.description, //storing box description
-      boxNo: boxNumber-1,
+      case_desc: order.boxes[boxNumber - 1].status.description, //storing box description
+      boxNo: boxNumber - 1,
       totalBox: order.boxes.length,
       SeqNo: order.seq,
-      Name: order.fname+" "+order.lname,
+      Name: order.fname + " " + order.lname,
       streetAddress: order.street_address,
-
-    }
+    };
     if (
       req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
       order.boxes[boxNumber - 1].status.type ==
@@ -1057,7 +1115,7 @@ exports.scanOrderBox = async (req, res) => {
     }
     //if box number is zero throw error
     if (boxNumber == 0) {
-      responseObj.message = wrong_boxno
+      responseObj.message = wrong_boxno;
       return res.status(400).send({
         status: failed_status,
         statusCode: 400,
@@ -1109,14 +1167,15 @@ exports.scanOrderBox = async (req, res) => {
         order.user_id.length != 0 &&
         !flag
       ) {
-        responseObj.message = another_driver_order + " "+order.driver_string;
+        responseObj.message = another_driver_order + " " + order.driver_string;
         responseObj.case_desc = "Box scanned in";
         return res.status(400).send({
           status: failed_status,
           statusCode: 400,
-          error: responseObj
+          error: responseObj,
         });
-      } else if (!flag) { //if scanning first time order but order belongs to logged in user or anonymous 
+      } else if (!flag) {
+        //if scanning first time order but order belongs to logged in user or anonymous
         let yesterdayDate = moment()
           .subtract(1, "days")
           .format(process.env.YYYYMMDD);
@@ -1252,7 +1311,7 @@ exports.scanOrderBox = async (req, res) => {
         return res.status(404).send({
           status: failed_status,
           statusCode: 404,
-          error: "This box has already been scanned out in past!",
+          error: already_scanned,
         });
       }
     }
@@ -1265,6 +1324,7 @@ exports.scanOrderBox = async (req, res) => {
       data: order,
     });
   } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
@@ -1502,9 +1562,12 @@ exports.resetOrder = async (req, res) => {
         : process.env.ERROR_MSG_SPANISH;
 
     const orderId = req.body.orderId;
-    const storeId = req.body.storeId
+    const storeId = req.body.storeId;
     //looping to update each box with driver id
-    let updated_order = await Orders.findOne({ order_id: orderId,store_id: storeId });
+    let updated_order = await Orders.findOne({
+      order_id: orderId,
+      store_id: storeId,
+    });
     if (updated_order == null) {
       return res.status(404).send({
         status: failed_status,
@@ -1512,15 +1575,14 @@ exports.resetOrder = async (req, res) => {
         error: invaild_orderId,
       });
     }
-    let order_boxes = updated_order.boxes
+    let order_boxes = updated_order.boxes;
     // getting all boxIds and store them in array
-    
-if( order_boxes.length != 0) {
 
-
+    if (order_boxes.length != 0) {
       for (i = 0; i < order_boxes.length; i++) {
         order_boxes[i].status.type = "IN_STORE";
-        order_boxes[i].status.description = "Order has been placed. Box status has not been updated yet.";
+        order_boxes[i].status.description =
+          "Order has been placed. Box status has not been updated yet.";
         order_boxes[i].status.driver_id = null;
       }
       updated_order.save();
@@ -1585,8 +1647,9 @@ async function check_oldest(
     boxes_of_old_order,
     oldest_order;
   //checking if check_for_old_orders_first is allowed by store or not
-  console.log("check_for_old_orders_first");
+
   if (current_order != undefined && check_for_old_orders_first == 1) {
+    console.log("check_for_old_orders_first");
     //getting user orders and unassigned orders
     let userOrders = await Orders.find(query_for_user_orders);
 
@@ -1621,9 +1684,10 @@ async function check_oldest(
 
       //getting intervals
       interval1 =
-        (this_ordertime.getTime() - oldest_ordertime.getTime()) / 1000;
+        (this_ordertime.getTime() - oldest_ordertime.getTime()) / 1000 / 60;
       interval2 =
-        (considered_old.getTime() - oldest_ordertime.getTime()) / 1000;
+        (considered_old.getTime() - oldest_ordertime.getTime()) / 1000 / 60;
+      console.log(interval1, interval2);
 
       let boxes_of_old_order = oldest_order.boxes;
       //checking if oldest order already got scanned or not
@@ -1635,7 +1699,7 @@ async function check_oldest(
           }
         });
       }
-      console.log(interval1, interval2);
+
       if (
         test_order == true &&
         current_order._id != oldest_order._id &&
@@ -1674,7 +1738,7 @@ function check_if_order_is_young(
   young_order_time,
   current_order
 ) {
-//checking if check_if_order_is_too_young ==1 or not 
+  //checking if check_if_order_is_too_young ==1 or not
   if (check_if_order_is_too_young == 1) {
     let considered_young = parseInt(young_order_time) * 60;
     let this_ordertime = new Date(current_order.createdAt ?? new Date());
