@@ -711,13 +711,13 @@ exports.confirmBarCode = async (req, res) => {
  *     scan_order:
  *       type: object
  *       required:
- *         - barcodeTestString
+ *         - rawData
  *       properties:
- *         barcodeTestString:
+ *         rawData:
  *           type: string
  *           description: raw barcode of box
  *       example:
- *           barcodeTestString: "9998701093402"
+ *           rawData: "9998701093402"
  *
  */
 /**
@@ -783,7 +783,7 @@ exports.scanOrderBox = async (req, res) => {
   let components = [],
     splitWith = [];
   let buchbarcode;
-  let barcodeTestString = req.body.barcodeTestString;
+  let rawData = req.body.rawData;
   let regex_arr = [];
   const specialChars = /[`!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]/;
   // console.log(specialChars.test(str))
@@ -894,8 +894,8 @@ exports.scanOrderBox = async (req, res) => {
     store.check_if_order_is_too_old = store.check_if_order_is_too_old ?? 0;
     store.check_for_old_orders_first = store.check_for_old_orders_first ?? 0;
     store.old_order_time = store.old_order_time ?? 0;
-    //converting barcodeTestString into string in case front end send it as number
-    barcodeTestString = barcodeTestString.toString();
+    //converting rawData into string in case front end send it as number
+    rawData = rawData.toString();
 
     //getting barcode format from db
     var barcodeFormats = await BarcodeFormat.find();
@@ -922,23 +922,23 @@ exports.scanOrderBox = async (req, res) => {
     splitWith = barcodeFormats.map((value) => value.split_with);
     regex_arr = barcodeFormats.map((value) => value.regexformat);
 
-    //looping over regex_arr arr and comparing barcodeTestString with regex
+    //looping over regex_arr arr and comparing rawData with regex
     regex_arr.forEach((regex, index) => {
-      console.log(barcodeTestString.match(regex));
-      if (barcodeTestString.match(regex) !== null) {  //coomparing regex with barcode
+      console.log(rawData.match(regex));
+      if (rawData.match(regex) !== null) {  //coomparing regex with barcode
         if(!isNaN(splitWith[index])) {
           console.log("he");
-          buchbarcode = barcodeTestString.slice(0, - splitWith[index]);
+          buchbarcode = rawData.slice(0, - splitWith[index]);
           components.push(buchbarcode)
           components.push(
-            barcodeTestString.substring(barcodeTestString.length - splitWith[index]));
+            rawData.substring(rawData.length - splitWith[index]));
   //checking if barcode which matched with regex has stodeId in format or not if not then add
         if (!barcodeFormats[index].storeid_available) {
           components.unshift(store.store_id);
         }
         } else {
           
-          components = barcodeTestString.split(splitWith[index]);
+          components = rawData.split(splitWith[index]);
           //checking if barcode which matched with regex has stodeId in format or not if not then add
         if (!barcodeFormats[index].storeid_available) {
           components.unshift(store.store_id);
@@ -953,16 +953,16 @@ exports.scanOrderBox = async (req, res) => {
     // switch (store.barcode_type) {
     //   case "RDT":
     //     components = [];
-    //     components = barcodeTestString.split("/");
+    //     components = rawData.split("/");
     //     break;
     //   case "CMP":
     //     components = [];
     //     let barcodetesting
-    //     let numberTest =barcodeTestString[0];
+    //     let numberTest =rawData[0];
     //     if (!isNaN(numberTest)) {
-    //       barcodetesting = barcodeTestString
+    //       barcodetesting = rawData
     //     } else {
-    //       barcodetesting = barcodeTestString.substring(1);
+    //       barcodetesting = rawData.substring(1);
     //     }
 
     //     components = barcodetesting.split("-") ?? [];
@@ -970,35 +970,35 @@ exports.scanOrderBox = async (req, res) => {
     //     break;
     //   case "BUC":
     //     components = [];
-    //     buchbarcode = barcodeTestString.slice(0, -2);
+    //     buchbarcode = rawData.slice(0, -2);
     //     if (buchbarcode[0] == 0) {
     //       buchbarcode = buchbarcode.substring(1);
     //     }
     //     components.push(store.store_id);
     //     components.push(buchbarcode);
-    //     if (barcodeTestString.length > 2) {
+    //     if (rawData.length > 2) {
     //       components.push(
-    //         barcodeTestString.substring(barcodeTestString.length - 2)
+    //         rawData.substring(rawData.length - 2)
     //       );
     //     }
     //     break;
     //   case "STCR":
     //     components = [];
-    //     buchbarcode = barcodeTestString.slice(0, -2);
+    //     buchbarcode = rawData.slice(0, -2);
     //     components.push(store.store_id);
     //     components.push(buchbarcode);
-    //     if (barcodeTestString.length > 2) {
+    //     if (rawData.length > 2) {
     //       components.push(
-    //         barcodeTestString.substring(barcodeTestString.length - 2)
+    //         rawData.substring(rawData.length - 2)
     //       );
     //     }
     //     break;
     //   case "MICRO":
     //     components = [];
     //     components.push(store.store_id);
-    //     buchbarcode = barcodeTestString;
+    //     buchbarcode = rawData;
     //     if (buchbarcode.includes("RX")) {
-    //       buchbarcode = barcodeTestString.slice(0, -2);
+    //       buchbarcode = rawData.slice(0, -2);
     //     }
     //     components.push(buchbarcode);
     //     components.push("01");
@@ -1006,30 +1006,30 @@ exports.scanOrderBox = async (req, res) => {
     //   case "RX30":
     //     components = [];
     //     components.push(store.store_id);
-    //     if (barcodeTestString.length > 8) {
-    //       let barcodeTestString2 = barcodeTestString.substring(4);
-    //       barcodeTestString2 = barcodeTestString2.slice(0, -1);
-    //       components.push(barcodeTestString2);
+    //     if (rawData.length > 8) {
+    //       let rawData2 = rawData.substring(4);
+    //       rawData2 = rawData2.slice(0, -1);
+    //       components.push(rawData2);
     //     } else {
-    //       components.push(barcodeTestString.slice(0, -2));
+    //       components.push(rawData.slice(0, -2));
     //     }
     //     components.push("01");
     //     break;
     //   case "IKON":
     //     components = [];
-    //     components = barcodeTestString.split("-");
+    //     components = rawData.split("-");
     //     components.unshift(store.store_id);
     //     components.push("-01");
     //     break;
     //   default:
     //     components = [];
     //     components.unshift(store.store_id);
-    //     components.push(barcodeTestString);
+    //     components.push(rawData);
     //     components.push("-01");
     //     break;
     // }
 
-    if (barcodeTestString.length < store.barcode_minimum) {
+    if (rawData.length < store.barcode_minimum) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -1037,7 +1037,7 @@ exports.scanOrderBox = async (req, res) => {
       });
     } else if (
       store.barcode_type == "RDT" &&
-      barcodeTestString.includes("/") == false
+      rawData.includes("/") == false
     ) {
       return res.status(404).send({
         status: failed_status,
@@ -1118,7 +1118,7 @@ exports.scanOrderBox = async (req, res) => {
       responseObj.message = wrong_boxno;
       return res.status(400).send({
         status: failed_status,
-        statusCode: 400,
+        statusCode: 404,
         error: responseObj,
         data: order,
       });
