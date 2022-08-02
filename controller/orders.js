@@ -1046,15 +1046,15 @@ exports.scanOrderBox = async (req, res) => {
       });
     } else {
       if (components.length != 3) {
-        return res.status(404).send({
+        return res.status(406).send({
           status: failed_status,
-          statusCode: 404,
+          statusCode: 406,
           error: uncomplete_barcode,
         });
       } else if (user.store_id != components[0]) {
         return res.status(404).send({
           status: failed_status,
-          statusCode: 404,
+          statusCode: 402,
           error: invalid_storeid,
         });
       } else if (components[2] == null) {
@@ -1116,9 +1116,9 @@ exports.scanOrderBox = async (req, res) => {
     //if box number is zero throw error
     if (boxNumber == 0) {
       responseObj.message = wrong_boxno;
-      return res.status(400).send({
+      return res.status(204).send({
         status: failed_status,
-        statusCode: 404,
+        statusCode: 204,
         error: responseObj,
         data: order,
       });
@@ -1136,7 +1136,7 @@ exports.scanOrderBox = async (req, res) => {
         "SCANNED_IN",
       ];
     }
-
+    
     //checking if user scanning this order box first time or not and flag true means user already have scanned some boxes
     // so we would not check this time if user is scanning another driver order and we would not check for oldest orders this time
     // only when user first time scan order that time we will check for those conditions
@@ -1171,7 +1171,7 @@ exports.scanOrderBox = async (req, res) => {
         responseObj.case_desc = "Box scanned in";
         return res.status(400).send({
           status: failed_status,
-          statusCode: 400,
+          statusCode: 401,
           error: responseObj,
         });
       } else if (!flag) {
@@ -1271,9 +1271,9 @@ exports.scanOrderBox = async (req, res) => {
           query_for_unassigned_orders
         );
         if (found_old_order) {
-          return res.status(200).send({
+          return res.status(302).send({
             status: success_status,
-            statusCode: 200,
+            statusCode: 302,
             message: found_old_order_msg,
             data: found_old_order,
           });
@@ -1287,7 +1287,7 @@ exports.scanOrderBox = async (req, res) => {
         if (order_is_old) {
           return res.status(200).send({
             status: success_status,
-            statusCode: 200,
+            statusCode: 303,
             message: order_is_old_msg + parseInt(old_order_time / 3600),
           });
         }
@@ -1300,7 +1300,7 @@ exports.scanOrderBox = async (req, res) => {
         if (order_is_young) {
           return res.status(200).send({
             status: success_status,
-            statusCode: 200,
+            statusCode: 303,
             message: order_is_young_msg,
           });
         }
@@ -1310,7 +1310,7 @@ exports.scanOrderBox = async (req, res) => {
       if (store.strict_box_scan_in == 1) {
         return res.status(404).send({
           status: failed_status,
-          statusCode: 404,
+          statusCode: 403,
           error: already_scanned,
         });
       }
@@ -1327,7 +1327,7 @@ exports.scanOrderBox = async (req, res) => {
     console.log(err);
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failed_status, statusCode: 500, error: err });
   }
 };
 
