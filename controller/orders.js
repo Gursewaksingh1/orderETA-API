@@ -4,6 +4,8 @@ const Store = require("../model/store");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
 const { json } = require("body-parser");
+const { order } = require("../validatorSchema/validationrules");
+const orders = require("../model/orders");
 
 /**
  * @swagger
@@ -150,12 +152,14 @@ exports.getOrders = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-    //adding status field in orders by placing if condition
+    //adding status field in orders
+    await Orders.updateMany(query, { $set: { status: 0 } });
+
     orders.map((order) => {
       if (order.boxes_scanned_in == order.total_boxes) {
-        order.status = "Ready";
+        order.statusKey = "Ready";
       } else {
-        order.status = "Unconfirmed";
+        order.statusKey = "Unconfirmed";
       }
     });
     //getting order length
@@ -176,6 +180,7 @@ exports.getOrders = async (req, res) => {
       data: { user, orders },
     });
   } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
@@ -299,11 +304,14 @@ exports.get_orders_by_scan = async (req, res) => {
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
+      //adding status key in orders
+      await Orders.updateMany(query, { $set: { status: 0 } });
+
     orders.map((order) => {
       if (order.boxes_scanned_in == order.total_boxes) {
-        order.status = "Ready";
+        order.statusKey = "Ready";
       } else {
-        order.status = "not_confirmed";
+        order.statusKey = "Unconfirmed";
       }
     });
     order_length = orders.length;
@@ -488,6 +496,11 @@ exports.getOrderBySeq = async (req, res) => {
         error: invalid_box_status,
       });
     }
+
+    order.map((order) => {
+      order.status = 0
+    });
+    order.save();
     res
       .status(200)
       .send({ status: success_status, statusCode: 200, data: order });
@@ -763,6 +776,7 @@ exports.confirmBarCode = async (req, res) => {
 
 exports.scanOrderBox = async (req, res) => {
   let success_status,
+  scanned_in,
     failed_status,
     box_scan_success,
     invalid_barcode_len,
@@ -1135,12 +1149,21 @@ exports.scanOrderBox = async (req, res) => {
         title: not_found,
         error: wrong_barcode,
       });
+    } else if (order.boxes[boxNumber -1] == undefined) {
+      return res.status(404).send({
+        status: failed_status,
+        statusCode: 404,
+        type: "alert",
+        title: not_found,
+        error: wrong_barcode,
+      });
     }
     // obj to send with each succes or failed response
     let responseObj = {
       message: "message",
       case_desc: order.boxes[boxNumber - 1].status.description, //storing box description
-      boxNo: boxNumber - 1,
+      boxNo: boxNumber,
+      boxscanned: order.boxes_scanned_in?? 0,
       totalBox: order.boxes.length,
       SeqNo: order.seq,
       Name: order.fname + " " + order.lname,
@@ -1150,7 +1173,8 @@ exports.scanOrderBox = async (req, res) => {
       req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
       order.boxes[boxNumber - 1].status.type ==
         ("SCANNED_IN" || "MANUALLY_CONFIRMED") //the driver id is also same as logged in user id
-    ) {
+        && order.status !== 1
+        ) {
       responseObj.message = duplicate_scan;
 
       return res.status(400).send({
@@ -1204,12 +1228,25 @@ exports.scanOrderBox = async (req, res) => {
         statusMatch = true;
       }
     });
-    if (order.boxes.length !== 0 && statusMatch && order.status == 0) {
+ 
+    if (order.boxes.length !== 0 && statusMatch && order.status !== 1) {
       order.boxes[boxNumber - 1].status.type = "SCANNED_IN";
       order.boxes[boxNumber - 1].status.description = "Box scanned in";
       order.boxes[boxNumber - 1].status.driver_id = req.user.userId;
+      if(order.boxes_scanned_in) {
+        scanned_in = order.boxes_scanned_in+1
+       order.boxes_scanned_in = order.boxes_scanned_in+1
+       
+      } else {
+        scanned_in  = 1;
+        order.boxes_scanned_in = 1
+      }
 
+      if(order.status == undefined) {
+        order.status = 0
+      }
       order.save();
+      
       //after saving order in db check if order belongs to someone else & is first time scanning the order
       if (
         req.user.userId != order.user_id &&
@@ -1217,8 +1254,14 @@ exports.scanOrderBox = async (req, res) => {
         order.user_id.length != 0 &&
         !flag
       ) {
+        let total_box_scan = await Orders.findOne({
+          store_id: storeId,
+          order_id: orderId,
+        });
         responseObj.message = another_driver_order_msg+ " "+ order.fname +" "+order.lname;
         responseObj.case_desc = "Box scanned in";
+        responseObj.boxscanned = total_box_scan.boxes_scanned_in
+        console.log(total_box_scan.boxes_scanned_in);
         return res.status(400).send({
           status: failed_status,
           statusCode: 401,
@@ -1375,8 +1418,14 @@ exports.scanOrderBox = async (req, res) => {
         });
       }
     }
+    let total_box_scan = await Orders.findOne({
+      store_id: storeId,
+      order_id: orderId,
+    });
     responseObj.case_desc = "Box scanned in";
     responseObj.message = box_scan_success;
+    responseObj.boxscanned = total_box_scan.boxes_scanned_in
+    //console.log(total_box_scan.boxes_scanned_in);
     res.status(200).send({
       status: success_status,
       statusCode: 200,
@@ -1386,6 +1435,7 @@ exports.scanOrderBox = async (req, res) => {
       data: order,
     });
   } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 500, error: err });
@@ -1646,6 +1696,7 @@ exports.resetOrder = async (req, res) => {
           "Order has been placed. Box status has not been updated yet.";
         order_boxes[i].status.driver_id = null;
       }
+      updated_order.boxes_scanned_in = 0
       updated_order.save();
       res.status(200).send({
         status: success_status,
