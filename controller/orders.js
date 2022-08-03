@@ -767,15 +767,22 @@ exports.scanOrderBox = async (req, res) => {
     box_scan_success,
     invalid_barcode_len,
     invalid_barcode,
+    admin_msg,
     uncomplete_barcode,
+    already_scanned_msg,
     invalid_storeid,
     invalid_boxno,
+    warning,
+    another_driver_order_msg,
     duplicate_scan,
     order_is_young_msg,
     order_is_old_msg,
     wrong_boxno,
+    wrong_barcode,
     found_old_order_msg,
     another_driver_order,
+    found,
+    not_found,
     statusMatch = false;
   let userId = req.user.userId,
     flag = false;
@@ -848,6 +855,11 @@ exports.scanOrderBox = async (req, res) => {
       user.Language == 1
         ? process.env.ANOTHER_DRIVER_ORDER_ENGLISH
         : process.env.ANOTHER_DRIVER_ORDER_SPANISH;
+        another_driver_order_msg =
+      user.Language == 1
+        ? process.env.ANOTHER_DRIVER_ORDER_MSG_ENGLISH
+        : process.env.ANOTHER_DRIVER_ORDER_MSG_SPANISH;
+        
     wrong_boxno =
       user.Language == 1
         ? process.env.WRONG_BOXNO_ENGLISH
@@ -872,6 +884,32 @@ exports.scanOrderBox = async (req, res) => {
       user.Language == 1
         ? process.env.ALREADY_SCANNED_ENGLISH
         : process.env.ALREADY_SCANNED_SPANISH;
+        already_scanned_msg =
+        user.Language == 1
+          ? process.env.ALREADY_SCANNED_MSG_ENGLISH
+          : process.env.ALREADY_SCANNED_MSG_SPANISH;
+        
+    wrong_barcode =
+      user.Language == 1
+        ? process.env.ERR_BARCODE_ENGLISH
+        : process.env.ERR_BARCODE_SPANISH;
+        warning =
+        user.Language == 1
+          ? process.env.WARNING_ENGLISH
+          : process.env.WARNING_SPANISH;
+          admin_msg =
+          user.Language == 1
+            ? process.env.ADMIN_MSG_ENGLISH
+            : process.env.ADMIN_MSG_SPANISH;
+          
+    found =
+      user.Language == 1
+        ? process.env.FOUND_ENGLISH
+        : process.env.FOUND_SPANISH;
+    not_found =
+      user.Language == 1
+        ? process.env.NOT_FOUND_ENGLISH
+        : process.env.NOT_FOUND_SPANISH;
     store = await findData(
       Store,
       { store_id: user.store_id },
@@ -923,33 +961,30 @@ exports.scanOrderBox = async (req, res) => {
     regex_arr = barcodeFormats.map((value) => value.regexformat);
 
     //looping over regex_arr arr and comparing rawData with regex
-    regex_arr.forEach((regex, index) => {
-      console.log(rawData.match(regex));
-      if (rawData.match(regex) !== null) {  //coomparing regex with barcode
-        if(!isNaN(splitWith[index])) {
-          console.log("he");
-          buchbarcode = rawData.slice(0, - splitWith[index]);
-          components.push(buchbarcode)
-          components.push(
-            rawData.substring(rawData.length - splitWith[index]));
-  //checking if barcode which matched with regex has stodeId in format or not if not then add
-        if (!barcodeFormats[index].storeid_available) {
-          components.unshift(store.store_id);
-        }
+    for(index=0;index<regex_arr.length;index++) {
+      if (rawData.match(regex_arr[index]) !== null) {
+        //coomparing regex with barcode
+        if (!isNaN(splitWith[index])) {
+          buchbarcode = rawData.slice(0, -splitWith[index]);
+          components.push(buchbarcode);
+          components.push(rawData.substring(rawData.length - splitWith[index]));
+          //checking if barcode which matched with regex has stodeId in format or not if not then add
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
         } else {
-          
           components = rawData.split(splitWith[index]);
           //checking if barcode which matched with regex has stodeId in format or not if not then add
-        if (!barcodeFormats[index].storeid_available) {
-          components.unshift(store.store_id);
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
         }
-        }
-        
-        
+        break;
       }
- 
-    });
-    console.log(components);
+      
+    }
+
+
     // switch (store.barcode_type) {
     //   case "RDT":
     //     components = [];
@@ -1033,15 +1068,17 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
+        type:"alert",
+        title: wrong_barcode,
         error: invalid_barcode_len,
       });
-    } else if (
-      store.barcode_type == "RDT" &&
-      rawData.includes("/") == false
-    ) {
+    } else if (store.barcode_type == "RDT" && rawData.includes("/") == false) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
+        type:"alert",
+        title: wrong_barcode,
+        
         error: invalid_barcode,
       });
     } else {
@@ -1049,18 +1086,24 @@ exports.scanOrderBox = async (req, res) => {
         return res.status(406).send({
           status: failed_status,
           statusCode: 406,
+          type:"alert",
+          title: wrong_barcode,
           error: uncomplete_barcode,
         });
       } else if (user.store_id != components[0]) {
         return res.status(404).send({
           status: failed_status,
           statusCode: 402,
+          type:"alert",
+          title: warning,
           error: invalid_storeid,
         });
       } else if (components[2] == null) {
         return res.status(404).send({
           status: failed_status,
           statusCode: 404,
+          type:"alert",
+          title: warning,
           error: invalid_boxno,
         });
       }
@@ -1079,14 +1122,18 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error: "Invalid barcode",
+        type: "alert",
+        title: not_found,
+        error: wrong_barcode,
       });
     } else if (order.boxes.length == 0) {
       //if box arr exist but is empty
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
-        error: "Invalid barcode! empty boxes",
+        type: "alert",
+        title: not_found,
+        error: wrong_barcode,
       });
     }
     // obj to send with each succes or failed response
@@ -1107,10 +1154,11 @@ exports.scanOrderBox = async (req, res) => {
       responseObj.message = duplicate_scan;
 
       return res.status(400).send({
-        status: duplicate_scan,
+        status: failed_status,
         statusCode: 400,
+        type:"grid",
+        title: duplicate_scan,
         error: responseObj,
-        data: order,
       });
     }
     //if box number is zero throw error
@@ -1119,8 +1167,10 @@ exports.scanOrderBox = async (req, res) => {
       return res.status(204).send({
         status: failed_status,
         statusCode: 204,
+        type:"grid",
+        title: wrong_boxno,
         error: responseObj,
-        data: order,
+        
       });
     }
 
@@ -1136,7 +1186,7 @@ exports.scanOrderBox = async (req, res) => {
         "SCANNED_IN",
       ];
     }
-    
+
     //checking if user scanning this order box first time or not and flag true means user already have scanned some boxes
     // so we would not check this time if user is scanning another driver order and we would not check for oldest orders this time
     // only when user first time scan order that time we will check for those conditions
@@ -1167,11 +1217,13 @@ exports.scanOrderBox = async (req, res) => {
         order.user_id.length != 0 &&
         !flag
       ) {
-        responseObj.message = another_driver_order + " " + order.driver_string;
+        responseObj.message = another_driver_order_msg+ " "+ order.fname +" "+order.lname;
         responseObj.case_desc = "Box scanned in";
         return res.status(400).send({
           status: failed_status,
           statusCode: 401,
+          type: "alert",
+          title: another_driver_order,
           error: responseObj,
         });
       } else if (!flag) {
@@ -1274,8 +1326,9 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(302).send({
             status: success_status,
             statusCode: 302,
-            message: found_old_order_msg,
-            data: found_old_order,
+            type:"alert",
+            title: found_old_order_msg+ " "+found_old_order.fname+ " "+ found_old_order.lname,
+            message: admin_msg,
           });
         }
 
@@ -1288,7 +1341,9 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(200).send({
             status: success_status,
             statusCode: 303,
-            message: order_is_old_msg + parseInt(old_order_time / 3600),
+            type:"alert",
+            title: order_is_old_msg + parseInt(old_order_time / 3600),
+            message: admin_msg
           });
         }
 
@@ -1301,7 +1356,9 @@ exports.scanOrderBox = async (req, res) => {
           return res.status(200).send({
             status: success_status,
             statusCode: 303,
-            message: order_is_young_msg,
+            type:"alert",
+            title: order_is_young_msg,
+            message: admin_msg
           });
         }
       }
@@ -1310,8 +1367,11 @@ exports.scanOrderBox = async (req, res) => {
       if (store.strict_box_scan_in == 1) {
         return res.status(404).send({
           status: failed_status,
+          found: not_found,
           statusCode: 403,
-          error: already_scanned,
+          type:"alert",
+          title: already_scanned,
+          error: already_scanned_msg+" "+order.fname
         });
       }
     }
@@ -1320,11 +1380,12 @@ exports.scanOrderBox = async (req, res) => {
     res.status(200).send({
       status: success_status,
       statusCode: 200,
+      type:"grid",
+      title: box_scan_success,
       message: responseObj,
       data: order,
     });
   } catch (err) {
-    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 500, error: err });
