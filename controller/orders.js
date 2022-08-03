@@ -776,7 +776,7 @@ exports.confirmBarCode = async (req, res) => {
 
 exports.scanOrderBox = async (req, res) => {
   let success_status,
-  scanned_in,
+  box_scan_msg_success,
     failed_status,
     box_scan_success,
     invalid_barcode_len,
@@ -894,6 +894,11 @@ exports.scanOrderBox = async (req, res) => {
       user.Language == 1
         ? process.env.BOX_SCAN_SUCCESS_ENGLISH
         : process.env.BOX_SCAN_SUCCESS_SPANISH;
+        box_scan_msg_success =
+      user.Language == 1
+        ? process.env.BOX_SCAN_SUCCESS_MSG_ENGLISH
+        : process.env.BOX_SCAN_SUCCESS_MSG_SPANISH;
+        
     already_scanned =
       user.Language == 1
         ? process.env.ALREADY_SCANNED_ENGLISH
@@ -1173,7 +1178,7 @@ exports.scanOrderBox = async (req, res) => {
       req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
       order.boxes[boxNumber - 1].status.type ==
         ("SCANNED_IN" || "MANUALLY_CONFIRMED") //the driver id is also same as logged in user id
-        && order.status !== 1
+        && order.status != 1
         ) {
       responseObj.message = duplicate_scan;
 
@@ -1229,16 +1234,16 @@ exports.scanOrderBox = async (req, res) => {
       }
     });
  
-    if (order.boxes.length !== 0 && statusMatch && order.status !== 1) {
+    if (order.boxes.length !== 0 && statusMatch && order.status != 1) {
       order.boxes[boxNumber - 1].status.type = "SCANNED_IN";
       order.boxes[boxNumber - 1].status.description = "Box scanned in";
       order.boxes[boxNumber - 1].status.driver_id = req.user.userId;
       if(order.boxes_scanned_in) {
-        scanned_in = order.boxes_scanned_in+1
+      
        order.boxes_scanned_in = order.boxes_scanned_in+1
        
       } else {
-        scanned_in  = 1;
+     
         order.boxes_scanned_in = 1
       }
 
@@ -1382,11 +1387,11 @@ exports.scanOrderBox = async (req, res) => {
         );
         if (order_is_old) {
           return res.status(200).send({
-            status: success_status,
+            status: failed_status,
             statusCode: 303,
             type:"alert",
             title: order_is_old_msg + parseInt(old_order_time / 3600),
-            message: admin_msg
+            error: admin_msg
           });
         }
 
@@ -1397,11 +1402,11 @@ exports.scanOrderBox = async (req, res) => {
         );
         if (order_is_young) {
           return res.status(200).send({
-            status: success_status,
+            status: failed_status,
             statusCode: 303,
             type:"alert",
             title: order_is_young_msg,
-            message: admin_msg
+            error: admin_msg
           });
         }
       }
@@ -1423,7 +1428,7 @@ exports.scanOrderBox = async (req, res) => {
       order_id: orderId,
     });
     responseObj.case_desc = "Box scanned in";
-    responseObj.message = box_scan_success;
+    responseObj.message = box_scan_msg_success;
     responseObj.boxscanned = total_box_scan.boxes_scanned_in
     //console.log(total_box_scan.boxes_scanned_in);
     res.status(200).send({
