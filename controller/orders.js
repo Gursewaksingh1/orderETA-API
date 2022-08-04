@@ -148,19 +148,23 @@ exports.getOrders = async (req, res) => {
         $and: [{ date_sent_to_device: { $gte: date_sent_to_device_check } }],
       };
     }
+  //adding status field in orders
+  await Orders.updateMany(query, { $set: { status: 0 } });
 
-    const orders = await Orders.find(query)
+    let orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-    //adding status field in orders
-    await Orders.updateMany(query, { $set: { status: 0 } });
+  
 
-    orders.map((order) => {
+    let newOrders = orders.map((order) => {
+     // const copy= {...order}
       if (order.boxes_scanned_in == order.total_boxes) {
+        
         order.statusKey = "Ready";
       } else {
         order.statusKey = "Unconfirmed";
       }
+      return order
     });
     //getting order length
     order_length = orders.length;
@@ -177,10 +181,9 @@ exports.getOrders = async (req, res) => {
       statusCode: 200,
       order_length,
       store,
-      data: { user, orders },
+      data: { user, newOrders },
     });
   } catch (err) {
-    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
@@ -301,11 +304,13 @@ exports.get_orders_by_scan = async (req, res) => {
         ],
       };
     }
+    await Orders.updateMany(query, { $set: { status: 0 } });
+
     const orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
       //adding status key in orders
-      await Orders.updateMany(query, { $set: { status: 0 } });
+      
 
     orders.map((order) => {
       if (order.boxes_scanned_in == order.total_boxes) {

@@ -201,6 +201,7 @@ const ordersSchema = new Schema({
         type: Number,
     },
     status:String,
+    statusKey:String,
     state: {
         
         type: String,
