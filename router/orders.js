@@ -38,8 +38,8 @@ router.put(
   validate,
   ordersController.manullyConfirmOrder
 );
-router.put(
-  "/deleteorder",
+router.delete(
+  "/",
   isAuth,
   order(),
   validate,
