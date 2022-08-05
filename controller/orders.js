@@ -307,12 +307,13 @@ exports.get_orders_by_scan = async (req, res) => {
       .limit(order_per_page);
     //adding status key in orders
 
-    orders.map((order) => {
+    let newOrders = orders.map((order) => {
       if (order.boxes_scanned_in == order.total_boxes) {
         order.statusKey = "Ready";
       } else {
         order.statusKey = "Unconfirmed";
       }
+      return order
     });
     order_length = orders.length;
     //if orders array length is empty and page no is 1 then throw responce
@@ -328,7 +329,7 @@ exports.get_orders_by_scan = async (req, res) => {
       statusCode: 200,
       order_length,
       store,
-      data: orders,
+      data: newOrders,
     });
   } catch (err) {
     res
@@ -358,7 +359,7 @@ exports.getOrderByOrderId = async (req, res) => {
       error_msg = process.env.ERROR_MSG_ENGLISH;
     }
 
-    const order = await Orders.findOne({ order_id: req.params.orderId });
+    const order = await Orders.findById({ _id: "wOJiQPqoJx" });
     if (order == null || undefined) {
       return res
         .status(404)
@@ -570,8 +571,16 @@ exports.getOrderByCurrentDate = async (req, res) => {
  *         orderId:
  *           type: string
  *           description: order id
+ *         reason:
+ *           type: string
+ *           description: reason for manully confirm order
+ *         flag:
+ *            type: boolen
+ *            description: flag to check if reason array
  *       example:
  *           orderId: 975
+ *           reason: Barcode is damaged
+ *           flag: true
  *
  */
 /**
@@ -619,7 +628,9 @@ exports.deleteOrder = async (req, res) => {
   let success_status,
     failed_status,
     order_deleted_success,
+    ask_confirmation,
     order_deleted_failed;
+    let flag = req.body.flag ?? false
   try {
     const user = await User.findOne({ _id: req.user.userId });
     success_status =
@@ -638,9 +649,26 @@ exports.deleteOrder = async (req, res) => {
       user.Language == 1
         ? process.env.DELETE_ORDER_FAILED_ENGLISH
         : process.env.DELETE_ORDER_FAILED_SPANISH;
+        ask_confirmation =
+        user.Language == 1
+          ? process.env.ASK_CONFIRMATION_ENGLISH
+          : process.env.ASK_CONFIRMATION_SPANISH;
+          ask_confirmation_msg =
+          user.Language == 1
+            ? process.env.ASK_CONFIRMATION_MSG_ENGLISH
+            : process.env.ASK_CONFIRMATION_MSG_SPANISH;
+          
+            if(!flag) {
+              return res.status(200).send({
+                status: failed_status,
+                statusCode: 200,
+                title: ask_confirmation,
+                message: ask_confirmation_msg,
+              });
+            }
     //delete order query
     const order = await Orders.findOneAndUpdate(
-      { order_id: req.body.orderId },
+      { order_id: req.body.orderId,store_id: req.body.storeId },
       {
         $set: {
           deleted_from_device: 1,
@@ -806,7 +834,7 @@ exports.scanOrderBox = async (req, res) => {
   let buchbarcode;
   let rawData = req.body.rawData;
   //if front-end does not send any value then 1
-  let check = req.body.check ?? 1;
+  let check = req.body.check ?? false;
   let regex_arr = [];
   // console.log(specialChars.test(str))
   let acceptedStatus = [
@@ -1081,7 +1109,7 @@ exports.scanOrderBox = async (req, res) => {
     //     components.push("-01");
     //     break;
     // }
-
+    console.log(components);
     if (rawData.length < store.barcode_minimum) {
       return res.status(404).send({
         status: failed_status,
@@ -1126,6 +1154,7 @@ exports.scanOrderBox = async (req, res) => {
         });
       }
     }
+    
     storeId = components[0];
     orderId = components[1];
     boxNumber = parseInt(components[2]);
@@ -1134,7 +1163,7 @@ exports.scanOrderBox = async (req, res) => {
       store_id: storeId,
       order_id: orderId,
     });
-
+console.log(order);
     //if order is null
     if (order == null) {
       return res.status(404).send({
@@ -1173,10 +1202,10 @@ exports.scanOrderBox = async (req, res) => {
       Name: order.fname + " " + order.lname,
       streetAddress: order.street_address,
     };
+
     if (
       req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
-      order.boxes[boxNumber - 1].status.type ==
-        ("SCANNED_IN" || "MANUALLY_CONFIRMED") && //the driver id is also same as logged in user id
+      ["SCANNED_IN", "MANUALLY_CONFIRMED"].includes(order.boxes[boxNumber - 1].status.type) && //the driver id is also same as logged in user id
       order.status != 1
     ) {
       responseObj.message = duplicate_scan;
@@ -1235,21 +1264,22 @@ exports.scanOrderBox = async (req, res) => {
     if (order.boxes.length !== 0 && statusMatch && order.status != 1) {
       //check if user trying to scan someone else's order then throw response
       //inside if check var will tell us if user gave permission for scanning else's order
+   
       if (
         req.user.userId != order.user_id &&
-        req.user.userId != undefined &&
+        order.user_id != undefined &&
         order.user_id.length != 0 &&
         !flag &&
-        check == 1
+        !check
       ) {
         let total_box_scan = await Orders.findOne({
           store_id: storeId,
           order_id: orderId,
         });
         responseObj.message =
-          another_driver_order_msg + " " + order.fname + " " + order.lname;
+          another_driver_order_msg + " " + order.driver_string
         responseObj.boxscanned = total_box_scan.boxes_scanned_in;
-        console.log(total_box_scan.boxes_scanned_in);
+        
         return res.status(400).send({
           status: failed_status,
           statusCode: 401,
@@ -1467,15 +1497,19 @@ exports.scanOrderBox = async (req, res) => {
  *         reason:
  *           type: string
  *           description: reason for manully confirm order
+ *         flag:
+ *            type: boolen
+ *            description: flag to check if reason array
  *       example:
  *           orderId: 975
  *           reason: Barcode is damaged
+ *           flag: true
  *
  */
 /**
  * @swagger
  * /orders/manullyconfirm:
- *   put:
+ *   delete:
  *     summary: manully confirm order
  *     tags: [orders]
  *     requestBody:
@@ -1518,6 +1552,7 @@ exports.manullyConfirmOrder = async (req, res) => {
     failed_status,
     invaild_orderId,
     not_allowed,
+    invaild_status,
     choose_reason,
     order_assigned_success,
     statusMatch;
@@ -1550,6 +1585,10 @@ exports.manullyConfirmOrder = async (req, res) => {
       user.Language == 1
         ? process.env.ERROR_MSG_ENGLISH
         : process.env.ERROR_MSG_SPANISH;
+        invaild_status =
+        user.Language == 1
+          ? process.env.INVAILD_STATUS_ENGLISH
+          : process.env.INVAILD_STATUS_SPANISH;
     not_allowed =
       user.Language == 1
         ? process.env.NOT_ALLOWED_SWIPE_CONFIRM_ENGLISH
@@ -1591,9 +1630,9 @@ exports.manullyConfirmOrder = async (req, res) => {
     statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
 //if disallow_swipe_order_confirm is 1 
     if (user.disallow_swipe_order_confirm == 1) {
-      return res.status(404).send({
+      return res.status(401).send({
         status: failed_status,
-        statusCode: 404,
+        statusCode: 401,
         error: not_allowed,
       });
       //if is_scanning or is_segueing not eq to 1 then confirm with reason
@@ -1617,10 +1656,10 @@ exports.manullyConfirmOrder = async (req, res) => {
         return res.status(404).send({
           status: failed_status,
           statusCode: 404,
-          error: invaild_orderId,
+          error: invaild_status,
         });
       }
-    } else  { 
+    } else  {
       //if both condition not match then we will ask user to choose resaon from reason array
       if(!flag) {
       
@@ -1656,7 +1695,7 @@ exports.manullyConfirmOrder = async (req, res) => {
           return res.status(404).send({
             status: failed_status,
             statusCode: 404,
-            error: invaild_orderId,
+            error: invaild_status,
           });
         }
       }

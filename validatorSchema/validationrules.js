@@ -16,6 +16,7 @@ function customVerify(val,userObj,datatype,datatype_spanish,fieldName,) {
 }
 //func for verifying length of input field
 function customVerifyLength(val,userObj,minLen,errorMsg,errorMsg_spanish) {
+ 
   if(val.length < minLen) {
     if(userObj.Language ==1) {
       throw Error(`${errorMsg}`)
@@ -174,12 +175,19 @@ const orders = () => {
 };
 
 const order = () => {
-  return [check("orderId").trim() .custom(async (orderId , { req })=> {
+  return [check("orderId").trim().custom(async (orderId , { req })=> {
     const user = await User.findOne({_id:req.user.userId})
     customVerifyLength(orderId,user,1,"orderId must not be empty","orderId No debe estar vacía")
     
     return orderId
-  })];
+  }),
+  check("storeId").trim().custom(async (storeId , { req })=> {
+    const user = await User.findOne({_id:req.user.userId})
+    customVerifyLength(storeId,user,1,"storeId must not be empty","storeId No debe estar vacía")
+    
+    return storeId
+  })
+];
 };
 
 const validate_reason_for_manully_confirm_order = () => {
@@ -206,6 +214,12 @@ const validate_reason_for_manully_confirm_order = () => {
     }
     customVerifyLength(reason,user,5,"reason must not be empty","reason No debe estar vacía")
     return reason
+  }),
+  check("storeId").trim().custom(async (storeId , { req })=> {
+    const user = await User.findOne({_id:req.user.userId})
+    customVerifyLength(storeId,user,1,"storeId must not be empty","storeId No debe estar vacía")
+    
+    return storeId
   })
 ];
 };

@@ -53,4 +53,13 @@ router.get(
 
   ordersController.getOrderBySeq
 );
+
+router.get(
+  "/get/:orderId",
+  isAuth,
+  // validateSeqNumber(),
+  // validate,
+
+  ordersController.getOrderByOrderId
+);
 module.exports = router;
