@@ -498,9 +498,9 @@ exports.getOrderBySeq = async (req, res) => {
       });
     }
 
-    order.map((order) => {
+//assign status key
       order.status = 0;
-    });
+
     order.save();
     res
       .status(200)
