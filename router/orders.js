@@ -11,7 +11,7 @@ const {
 } = require("../validatorSchema/validationrules");
 
 router.get("/", isAuth, ordersController.getOrders);
-
+router.post("/test",ordersController.addOrdersForTest)
 router.get("/byscan", isAuth, ordersController.get_orders_by_scan);
 
 router.get("/currentdate", isAuth, ordersController.getOrderByCurrentDate);

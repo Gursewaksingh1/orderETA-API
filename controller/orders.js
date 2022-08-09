@@ -5,6 +5,16 @@ const Reason = require("../model/reason");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
 
+
+exports.addOrdersForTest = async(req,res) => {
+  try {
+    const order = new Orders(req.body)
+    order.save();
+    res.status(201).send({status:"success",data:order})
+  } catch (err) {
+    res.status(500).send({status:"failed",error:err})
+  }
+}
 /**
  * @swagger
  * /orders?page:
@@ -90,6 +100,10 @@ exports.getOrders = async (req, res) => {
         ? process.env.READY_ENGLISH
         : process.env.READY_SPANISH;
     // }
+    //if load_in_late_orders_too is undefined then set zero
+    console.log(user.load_in_late_orders_too);
+    user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0
+    console.log(user.load_in_late_orders_too);
     //if page number is incorrect
     if (pageNo < 1 || null) {
       return res.status(400).send({
@@ -499,7 +513,10 @@ exports.getOrderBySeq = async (req, res) => {
     }
 
 //assign status key
-      order.status = 0;
+if(order.status != 1) {
+  order.status = 0;
+}
+  
 
     order.save();
     res
