@@ -434,6 +434,7 @@ exports.getOrderByOrderId = async (req, res) => {
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.byseq;
+  let startDate = req.query.date
   let success_status, failed_status, invaild_seq, invalid_box_status;
   let userId = req.user.userId;
   let acceptedStatus = [
@@ -469,17 +470,18 @@ exports.getOrderBySeq = async (req, res) => {
         strict_box_scan_in: "strict_box_scan_in",
       }
     );
+    console.log(moment(startDate).add(1, "days").format(process.env.YYYYMMDD));
     const order = await Orders.findOne({
       Seq: seq,
       $and: [
         {
           datetime_created: {
-            $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+            $gte: moment(startDate).format(process.env.YYYYMMDD),
           },
         },
         {
           datetime_created: {
-            $lt: moment().add(1, "days").format(process.env.YYYYMMDD),
+            $lt: moment(startDate).add(1, "days").format(process.env.YYYYMMDD),
           },
         },
       ],
