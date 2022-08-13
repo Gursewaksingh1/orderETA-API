@@ -101,9 +101,9 @@ exports.getOrders = async (req, res) => {
         : process.env.READY_SPANISH;
     // }
     //if load_in_late_orders_too is undefined then set zero
-    console.log(user.load_in_late_orders_too);
+
     user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0
-    console.log(user.load_in_late_orders_too);
+
     //if page number is incorrect
     if (pageNo < 1 || null) {
       return res.status(400).send({
@@ -113,21 +113,24 @@ exports.getOrders = async (req, res) => {
       });
     }
     //fetching store doc of logged in user
-    store = await findData(
+    let store = await findData(
       Store,
       { store_id: user.store_id },
       {
         show_yesterdays_orders_too: "show_yesterdays_orders_too",
         store_name: "store_name",
         store_id: "store_id",
+        days_in_past_to_import: "days_in_past_to_import"
       }
     );
+    store.days_in_past_to_import = store.days_in_past_to_import ?? 1
+   
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
     if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
         //code for getting yesterday date
         date_sent_to_device_check = moment()
-          .subtract(1, "days")
+          .subtract(store.days_in_past_to_import, "days")  // how much old orders want to show store can tell
           .format(process.env.YYYYMMDD);
       }
     }
@@ -194,6 +197,7 @@ exports.getOrders = async (req, res) => {
       data: { user, orders: newOrders },
     });
   } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
@@ -388,10 +392,23 @@ exports.getOrderByOrderId = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     get_order:
+ *       parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           description: input for which day of order you want to fetch order
+ *       example:
+ *           date: 2022-08-12
+ */ 
 /**
  * @swagger
- * /orders/{byseq}:
+ * /orders/{byseq}?"yyyy-mm-dd":
  *   get:
  *     summary: return orders using Seq number
  *     tags: [orders]
@@ -402,6 +419,13 @@ exports.getOrderByOrderId = async (req, res) => {
  *          type: number
  *        required: true
  *        description: Seq number
+ *      - in: query
+ *        name: date
+ *        schema:
+ *          type: string
+ *          example: "yyyy-mm-dd"
+ *        required: true
+ *        description: input for which day of order you want to fetch order
  *     responses:
  *       200:
  *         description: order fetched successfully
@@ -435,6 +459,7 @@ exports.getOrderByOrderId = async (req, res) => {
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.byseq;
   let startDate = req.query.date
+  console.log(startDate);
   let success_status, failed_status, invaild_seq, invalid_box_status;
   let userId = req.user.userId;
   let acceptedStatus = [
@@ -470,7 +495,7 @@ exports.getOrderBySeq = async (req, res) => {
         strict_box_scan_in: "strict_box_scan_in",
       }
     );
-    console.log(moment(startDate).add(1, "days").format(process.env.YYYYMMDD));
+    //console.log(moment(startDate).add(1, "days").format(process.env.YYYYMMDD));
     const order = await Orders.findOne({
       Seq: seq,
       $and: [
