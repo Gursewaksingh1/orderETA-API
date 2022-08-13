@@ -408,7 +408,7 @@ exports.getOrderByOrderId = async (req, res) => {
  */ 
 /**
  * @swagger
- * /orders/{byseq}?"yyyy-mm-dd":
+ * /orders/{byseq}:
  *   get:
  *     summary: return orders using Seq number
  *     tags: [orders]
