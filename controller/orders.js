@@ -615,22 +615,22 @@ exports.getOrderByCurrentDate = async (req, res) => {
  *         orderId:
  *           type: string
  *           description: order id
- *         reason:
+ *         storeId:
  *           type: string
- *           description: reason for manully confirm order
+ *           description: store id
  *         flag:
  *            type: boolen
  *            description: flag to check if reason array
  *       example:
  *           orderId: 975
- *           reason: Barcode is damaged
+ *           storeId: 24
  *           flag: true
  *
  */
 /**
  * @swagger
- * /orders/deleteorder:
- *   put:
+ * /orders:
+ *   delete:
  *     summary: delete order from user device
  *     tags: [orders]
  *     requestBody:
@@ -1538,6 +1538,9 @@ console.log(order);
  *         orderId:
  *           type: string
  *           description: order id
+ *         storeId:
+ *           type: string
+ *           description: store id
  *         reason:
  *           type: string
  *           description: reason for manully confirm order
@@ -1546,6 +1549,7 @@ console.log(order);
  *            description: flag to check if reason array
  *       example:
  *           orderId: 975
+ *           storeId: 24
  *           reason: Barcode is damaged
  *           flag: true
  *
@@ -1553,7 +1557,7 @@ console.log(order);
 /**
  * @swagger
  * /orders/manullyconfirm:
- *   delete:
+ *   put:
  *     summary: manully confirm order
  *     tags: [orders]
  *     requestBody:
@@ -1645,6 +1649,7 @@ exports.manullyConfirmOrder = async (req, res) => {
     //fetching order
     let updated_order = await Orders.findOne({
       order_id: req.body.orderId,
+      store_id:req.body.storeId
     });
     //checking if null
     if (updated_order == null) {

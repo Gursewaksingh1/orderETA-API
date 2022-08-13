@@ -33,8 +33,8 @@ const options = {
       version: "1.0.0",
     },
     servers:[{
-    // url:"http://localhost:3000/api",
-     url:"https://order-eta-app.herokuapp.com/api"
+     url:"http://localhost:3000/api",
+    // url:"https://order-eta-app.herokuapp.com/api"
     }
      
     ],
