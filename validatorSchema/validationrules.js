@@ -226,17 +226,18 @@ const validate_reason_for_manully_confirm_order = () => {
 
 const validateSeqNumber = () => {
   return [
-    check("byseq").trim()
+    check("byseq")
+    
     .custom(async (byseq , { req })=> {
-      var reg = /^\d+$/;  //checking if string only contains number or not 
+      //var reg = /^\d+$/;  //checking if string only contains number or not 
       const user = await User.findOne({_id:req.user.userId})
-      if(byseq ==undefined || byseq.length ==0 ||!reg.test(byseq)) {
+      if(byseq ==undefined || byseq.length ==0) {
         if(user.Language ==1) {
-          throw Error(`Seq must not be empty and it should be number`)
+          throw Error(`Seq must not be empty`)
         } else if (user.Language ==2) {
-          throw Error(`Seq no debe estar vacío y debe ser una número`)
+          throw Error(`Seq no debe estar vacío`)
         } else {
-          throw Error(`Seq must not be empty and it should be number`)
+          throw Error(`Seq must not be empty`)
         }
         
       }

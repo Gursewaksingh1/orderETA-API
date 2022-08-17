@@ -60,11 +60,11 @@ const ordersSchema = new Schema({
         type: Number,
     },
     cell1: {
-        
+        index: true,
         type: String,
     },
     cell2: {
-        
+        index: true,
         type: String,
     },
     contained_boxes: {
@@ -124,6 +124,7 @@ const ordersSchema = new Schema({
     fname: {
         
         type: String,
+        index: true
     },
     Geocords: {
         
@@ -138,8 +139,8 @@ const ordersSchema = new Schema({
         type: Number,
     },
     lname: {
-        required:true,
         type: String,
+        index: true
     },
     missing_info: {
         
@@ -162,8 +163,8 @@ const ordersSchema = new Schema({
         type: String,
     },
     phone: {
-        
-        type: Number,
+        index: true,
+        type: String,
     },
     report_address_to_here_map: {
         
@@ -211,7 +212,7 @@ const ordersSchema = new Schema({
         type: Number,
     },
     street_address: {
-        
+        index: true,
         type: String,
     },
     total_balance: {

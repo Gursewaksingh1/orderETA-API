@@ -5,16 +5,15 @@ const Reason = require("../model/reason");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
 
-
-exports.addOrdersForTest = async(req,res) => {
+exports.addOrdersForTest = async (req, res) => {
   try {
-    const order = new Orders(req.body)
+    const order = new Orders(req.body);
     order.save();
-    res.status(201).send({status:"success",data:order})
+    res.status(201).send({ status: "success", data: order });
   } catch (err) {
-    res.status(500).send({status:"failed",error:err})
+    res.status(500).send({ status: "failed", error: err });
   }
-}
+};
 /**
  * @swagger
  * /orders?page:
@@ -102,7 +101,7 @@ exports.getOrders = async (req, res) => {
     // }
     //if load_in_late_orders_too is undefined then set zero
 
-    user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0
+    user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0;
 
     //if page number is incorrect
     if (pageNo < 1 || null) {
@@ -120,17 +119,17 @@ exports.getOrders = async (req, res) => {
         show_yesterdays_orders_too: "show_yesterdays_orders_too",
         store_name: "store_name",
         store_id: "store_id",
-        days_in_past_to_import: "days_in_past_to_import"
+        days_in_past_to_import: "days_in_past_to_import",
       }
     );
-    store.days_in_past_to_import = store.days_in_past_to_import ?? 1
-   
+    store.days_in_past_to_import = store.days_in_past_to_import ?? 1;
+
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
     if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
         //code for getting yesterday date
         date_sent_to_device_check = moment()
-          .subtract(store.days_in_past_to_import, "days")  // how much old orders want to show store can tell
+          .subtract(store.days_in_past_to_import, "days") // how much old orders want to show store can tell
           .format(process.env.YYYYMMDD);
       }
     }
@@ -182,7 +181,7 @@ exports.getOrders = async (req, res) => {
     //getting order length
     order_length = orders.length;
     //if orders array length is empty and page no is 1 then throw responce
-    if (order_length == 0 && pageNo == 1) {
+    if (order_length == 0 && pageNo >= 1) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -331,11 +330,11 @@ exports.get_orders_by_scan = async (req, res) => {
       } else {
         order.statusKey = "Unconfirmed";
       }
-      return order
+      return order;
     });
     order_length = orders.length;
     //if orders array length is empty and page no is 1 then throw responce
-    if (order_length == 0 && pageNo == 1) {
+    if (order_length == 0 && pageNo >= 1) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
@@ -405,7 +404,7 @@ exports.getOrderByOrderId = async (req, res) => {
  *           description: input for which day of order you want to fetch order
  *       example:
  *           date: 2022-08-12
- */ 
+ */
 /**
  * @swagger
  * /orders/{byseq}:
@@ -458,7 +457,7 @@ exports.getOrderByOrderId = async (req, res) => {
 //fetching user order by Seq
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.byseq;
-  let startDate = req.query.date
+  let startDate = req.query.date;
   console.log(startDate);
   let success_status, failed_status, invaild_seq, invalid_box_status;
   let userId = req.user.userId;
@@ -495,9 +494,17 @@ exports.getOrderBySeq = async (req, res) => {
         strict_box_scan_in: "strict_box_scan_in",
       }
     );
-    //console.log(moment(startDate).add(1, "days").format(process.env.YYYYMMDD));
+
     const order = await Orders.findOne({
-      Seq: seq,
+      $or: [
+        { Seq: seq },
+        { fname: seq },
+        { lname: seq },
+        { street_address: seq },
+        { cell1: seq },
+        { cell2: seq },
+        { "street_address": { "$regex": seq, "$options": "i" } },
+      ],
       $and: [
         {
           datetime_created: {
@@ -539,11 +546,10 @@ exports.getOrderBySeq = async (req, res) => {
       });
     }
 
-//assign status key
-if(order.status != 1) {
-  order.status = 0;
-}
-  
+    //assign status key
+    if (order.status != 1) {
+      order.status = 0;
+    }
 
     order.save();
     res
@@ -674,7 +680,7 @@ exports.deleteOrder = async (req, res) => {
     order_deleted_success,
     ask_confirmation,
     order_deleted_failed;
-    let flag = req.body.flag ?? false
+  let flag = req.body.flag ?? false;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     success_status =
@@ -693,26 +699,26 @@ exports.deleteOrder = async (req, res) => {
       user.Language == 1
         ? process.env.DELETE_ORDER_FAILED_ENGLISH
         : process.env.DELETE_ORDER_FAILED_SPANISH;
-        ask_confirmation =
-        user.Language == 1
-          ? process.env.ASK_CONFIRMATION_ENGLISH
-          : process.env.ASK_CONFIRMATION_SPANISH;
-          ask_confirmation_msg =
-          user.Language == 1
-            ? process.env.ASK_CONFIRMATION_MSG_ENGLISH
-            : process.env.ASK_CONFIRMATION_MSG_SPANISH;
-          
-            if(!flag) {
-              return res.status(200).send({
-                status: failed_status,
-                statusCode: 200,
-                title: ask_confirmation,
-                message: ask_confirmation_msg,
-              });
-            }
+    ask_confirmation =
+      user.Language == 1
+        ? process.env.ASK_CONFIRMATION_ENGLISH
+        : process.env.ASK_CONFIRMATION_SPANISH;
+    ask_confirmation_msg =
+      user.Language == 1
+        ? process.env.ASK_CONFIRMATION_MSG_ENGLISH
+        : process.env.ASK_CONFIRMATION_MSG_SPANISH;
+
+    if (!flag) {
+      return res.status(200).send({
+        status: failed_status,
+        statusCode: 200,
+        title: ask_confirmation,
+        message: ask_confirmation_msg,
+      });
+    }
     //delete order query
     const order = await Orders.findOneAndUpdate(
-      { order_id: req.body.orderId,store_id: req.body.storeId },
+      { order_id: req.body.orderId, store_id: req.body.storeId },
       {
         $set: {
           deleted_from_device: 1,
@@ -1153,7 +1159,7 @@ exports.scanOrderBox = async (req, res) => {
     //     components.push("-01");
     //     break;
     // }
-    console.log(components);
+
     if (rawData.length < store.barcode_minimum) {
       return res.status(404).send({
         status: failed_status,
@@ -1198,7 +1204,7 @@ exports.scanOrderBox = async (req, res) => {
         });
       }
     }
-    
+
     storeId = components[0];
     orderId = components[1];
     boxNumber = parseInt(components[2]);
@@ -1207,7 +1213,7 @@ exports.scanOrderBox = async (req, res) => {
       store_id: storeId,
       order_id: orderId,
     });
-console.log(order);
+
     //if order is null
     if (order == null) {
       return res.status(404).send({
@@ -1249,7 +1255,9 @@ console.log(order);
 
     if (
       req.user.userId == order.boxes[boxNumber - 1].status.driver_id && //check if box which we are scanning is also scanned in &
-      ["SCANNED_IN", "MANUALLY_CONFIRMED"].includes(order.boxes[boxNumber - 1].status.type) && //the driver id is also same as logged in user id
+      ["SCANNED_IN", "MANUALLY_CONFIRMED"].includes(
+        order.boxes[boxNumber - 1].status.type
+      ) && //the driver id is also same as logged in user id
       order.status != 1
     ) {
       responseObj.message = duplicate_scan;
@@ -1308,7 +1316,7 @@ console.log(order);
     if (order.boxes.length !== 0 && statusMatch && order.status != 1) {
       //check if user trying to scan someone else's order then throw response
       //inside if check var will tell us if user gave permission for scanning else's order
-   
+
       if (
         req.user.userId != order.user_id &&
         order.user_id != undefined &&
@@ -1321,9 +1329,9 @@ console.log(order);
           order_id: orderId,
         });
         responseObj.message =
-          another_driver_order_msg + " " + order.driver_string
+          another_driver_order_msg + " " + order.driver_string;
         responseObj.boxscanned = total_box_scan.boxes_scanned_in;
-        
+
         return res.status(400).send({
           status: failed_status,
           statusCode: 401,
@@ -1606,7 +1614,7 @@ exports.manullyConfirmOrder = async (req, res) => {
     statusMatch;
   let reason = req.body.reason;
   let userId = req.user.userId;
-  let flag = req.body.flag ?? false
+  let flag = req.body.flag ?? false;
   let reasonArray = [];
   let refusedStatus = [
     "SCANNED_OUT",
@@ -1633,23 +1641,23 @@ exports.manullyConfirmOrder = async (req, res) => {
       user.Language == 1
         ? process.env.ERROR_MSG_ENGLISH
         : process.env.ERROR_MSG_SPANISH;
-        invaild_status =
-        user.Language == 1
-          ? process.env.INVAILD_STATUS_ENGLISH
-          : process.env.INVAILD_STATUS_SPANISH;
+    invaild_status =
+      user.Language == 1
+        ? process.env.INVAILD_STATUS_ENGLISH
+        : process.env.INVAILD_STATUS_SPANISH;
     not_allowed =
       user.Language == 1
         ? process.env.NOT_ALLOWED_SWIPE_CONFIRM_ENGLISH
         : process.env.NOT_ALLOWED_SWIPE_CONFIRM_SPANISH;
-        choose_reason =
-        user.Language == 1
-          ? process.env.CHOOSE_REASON_ENGLISH
-          : process.env.CHOOSE_REASON_SPANISH;
-        
+    choose_reason =
+      user.Language == 1
+        ? process.env.CHOOSE_REASON_ENGLISH
+        : process.env.CHOOSE_REASON_SPANISH;
+
     //fetching order
     let updated_order = await Orders.findOne({
       order_id: req.body.orderId,
-      store_id:req.body.storeId
+      store_id: req.body.storeId,
     });
     //checking if null
     if (updated_order == null) {
@@ -1659,25 +1667,25 @@ exports.manullyConfirmOrder = async (req, res) => {
         error: invaild_orderId,
       });
     }
-      //getting reason arr
-      const reasons = await Reason.find()
-      reasons.forEach(reason => {
-        if(reason.type == "CONFIRM") {
-          reasonArray.push(reason.text)
-        }
-      })
+    //getting reason arr
+    const reasons = await Reason.find();
+    reasons.forEach((reason) => {
+      if (reason.type == "CONFIRM") {
+        reasonArray.push(reason.text);
+      }
+    });
     //when flag is true & user did not send any reason then ask user to choose a reason
     if (flag && !reason) {
       return res.status(404).send({
         status: failed_status,
         statusCode: 404,
         error: choose_reason,
-        data: reasonArray
+        data: reasonArray,
       });
     }
     //checking if refused status matched or not
     statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
-//if disallow_swipe_order_confirm is 1 
+    //if disallow_swipe_order_confirm is 1
     if (user.disallow_swipe_order_confirm == 1) {
       return res.status(401).send({
         status: failed_status,
@@ -1690,8 +1698,8 @@ exports.manullyConfirmOrder = async (req, res) => {
       if (updated_order.boxes.length !== 0 && !statusMatch) {
         for (i = 0; i < updated_order.boxes.length; i++) {
           updated_order.boxes[i].status.type = "MANUALLY_CONFIRMED";
-            updated_order.boxes[i].status.description =
-              "Box manually confirmed by non scanning user.";
+          updated_order.boxes[i].status.description =
+            "Box manually confirmed by non scanning user.";
           updated_order.boxes[i].status.driver_id = req.user.userId;
         }
         updated_order.save();
@@ -1708,10 +1716,9 @@ exports.manullyConfirmOrder = async (req, res) => {
           error: invaild_status,
         });
       }
-    } else  {
+    } else {
       //if both condition not match then we will ask user to choose resaon from reason array
-      if(!flag) {
-      
+      if (!flag) {
         return res.status(200).send({
           status: success_status,
           statusCode: 200,
@@ -1719,7 +1726,7 @@ exports.manullyConfirmOrder = async (req, res) => {
           data: reasonArray,
         });
       } else {
-        // in this block means user have choosed reason 
+        // in this block means user have choosed reason
         if (updated_order.boxes.length !== 0 && !statusMatch) {
           for (i = 0; i < updated_order.boxes.length; i++) {
             updated_order.boxes[i].status.type = "MANUALLY_CONFIRMED";
@@ -1730,7 +1737,7 @@ exports.manullyConfirmOrder = async (req, res) => {
               updated_order.boxes[i].status.description =
                 "Box is manually confirmed. The driver's reason: " + reason;
             }
-    
+
             updated_order.boxes[i].status.driver_id = req.user.userId;
           }
           updated_order.save();
