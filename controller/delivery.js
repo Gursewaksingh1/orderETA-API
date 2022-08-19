@@ -13,9 +13,11 @@ exports.startDelivery = async (req, res) => {
   let orderIds = req.body.orderIds;
   let query,
     check = false;
+    let password = req.body.password;
   let allow_manully_confirm = req.body.manullyConfirm ?? false;
-  let admin_override = req.body.admin_override ?? false;
+  let admin_override = req.body.adminOverride ?? false;
   let objectIds = [];
+  let responseObj;
   let newOrdersArr;
   let missingBoxes = "";
   notConfirmedBoxes = false;
@@ -88,6 +90,7 @@ exports.startDelivery = async (req, res) => {
         disallow_missing_boxes: "disallow_missing_boxes",
         check_similar_street: "check_similar_street",
         check_similar_address: "check_similar_address",
+        admin_pass: "admin_pass",
       }
     );
     store.disallow_missing_boxes = store.disallow_missing_boxes ?? 0;
@@ -147,58 +150,59 @@ exports.startDelivery = async (req, res) => {
       });
     });
     //checking if admin changed any order details
-    allOrders.forEach((orderObj1) => {
-      orders.forEach((orderObj2) => {
-        if (orderObj1 == orderObj2) {
-          lodash.isEqual(orderObj1, orderObj2);
-          check = true;
-        }
-      });
-    });
-    newOrdersArr = lodash.uniq(allOrders, orders, "order_id");
+    // allOrders.forEach((orderObj1) => {
+    //   orders.forEach((orderObj2) => {
+    //     if (orderObj1 == orderObj2) {
+    //       lodash.isEqual(orderObj1, orderObj2);
+    //       check = true;
+    //     }
+    //   });
+    // });
+    allOrders = [...allOrders, ...uniqueResult]
+console.log(uniqueResult);
+    //newOrdersArr = lodash.uniqBy(allOrders, "order_id"); 
 
     //if new orders are available then send all order and msg
     if (uniqueResult.length !== 0) {
       return res.status(200).send({
         status: success_status,
         statusCode: 200,
-        data: newOrdersArr,
         message: new_orders,
+        data: allOrders,
+        
       });
-    } else if (check) {
-      return res.status(200).send({
-        status: success_status,
-        statusCode: 200,
-        data: newOrdersArr,
-        message: info_changed,
-      });
+    // } else if (check) {
+    //   return res.status(200).send({
+    //     status: success_status,
+    //     statusCode: 200,
+    //     data: newOrdersArr,
+    //     message: info_changed,
+    //   });
     }
 
     //step 2
 
-    if (confirm_orders_no_swipe != 1) {
+    if (store.confirm_orders_no_swipe != 1) {
       allOrders.forEach((order) => {
         order.boxes.forEach((box) => {
+ 
           //if current box of order contains status which is present in acceptedStatus then show alert
           if (acceptedStatus.includes(box.status.type)) {
-            missingBoxes += ` Box # ${box.status.number}, ${order.name} ${order.streetAddress} order #:  ${order.order_id}\n`;
+            missingBoxes += ` Box # ${box.number}, ${order.fname} ${order.street_address} order #:${order.order_id}`;
             notConfirmedBoxes = true;
           }
         });
       });
     }
     //here we check if anyone box had acceptedStatus
-    if (notConfirmedBoxes) {
-      
-      //if store allows user to manully confirm order at the time of start delivery
-      if (store.disallow_missing_boxes != 1) {
-     let   responseObj = {
+    if (notConfirmedBoxes && store.disallow_missing_boxes != 1 && !allow_manully_confirm) {
+     
+        responseObj = {
           status: failed_status,
           statusCode: 400,
+          heading: box_not_scanned1+ missingBoxes+box_not_scanned2,
           subHeading1: cant_scan,
           subHeading3: cancel_Start_delivery
-        }
-    
       }
       if(user.Language == 1) {
         responseObj.subHeading2 = "Manager override"
@@ -222,7 +226,7 @@ exports.startDelivery = async (req, res) => {
         );
         
       }
-      if(admin_override && user.Language == 1) {
+      if(!admin_override && user.Language == 1) {
         return res.status(200).send({
           status:success_status,
           statusCode:200,
@@ -232,6 +236,8 @@ exports.startDelivery = async (req, res) => {
 
           }
         })
+      } else if(admin_override) {
+        admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
       }
       if (
         store.check_similar_street == 1 ||
@@ -239,13 +245,16 @@ exports.startDelivery = async (req, res) => {
       ) {
 
         let result = await check_similar_address(
-          Orders,
+          allOrders,
           store.check_similar_address,
-          store.check_similar_street
+          store.check_similar_street,
+          Orders,
+          user.Language,
+          store.store_id
         );
         //if we found any similar address then slow alert
         if (result) {
-          res.status(200).send({
+         return res.status(200).send({
             status: success_status,
             statusCode: 200,
             type:"alert",
@@ -254,6 +263,7 @@ exports.startDelivery = async (req, res) => {
         }
       }
     }
+    res.status(200).send({status:success_status,data:allOrders})
   } catch (err) {
     console.log(err);
     res

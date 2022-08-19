@@ -9,6 +9,7 @@ const start_delivery_manually_confirm = (orders, confirmedStatus, userId) => {
         box.status.driver_id = userId;
       }
     });
+    order.save()
   });
   return orders;
 };
@@ -18,8 +19,10 @@ const check_similar_address = async (
   similar_adress,
   similar_street,
   Model,
-  language
+  language,
+  storeId
 ) => {
+  let addressDetails;
   let addressArray = [];
   content_similar_order =
     language == 1
@@ -51,7 +54,7 @@ const check_similar_address = async (
 //fetching un assigned orders except order which user already have 
   let similarOrders = await Model.find(
     ({
-      store_id: store.store_id,
+      store_id: storeId,
       datetime_created: {
         $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
       },
@@ -59,29 +62,43 @@ const check_similar_address = async (
       hidden: { $ne: 1 },
       visited: { $ne: 1 },
       route_started: { $eq: null },
-      objectId: { $nin: objectIds },
+      _id: { $nin: objectIds },
     })
   );
   //if sirmialr address matches with any order address of simialrOrders then send response
-  similarOrders.forEach((order) => {
+  for(order of similarOrders) {
     if (addressArray.includes(order.street_address)) {
+      content_similar_order = content_similar_order.replace("ORDERNAME",order.fname," "+order.lname)
+      content_similar_order = content_similar_order.replace("ADDRESS",order.street_address)
+      content_similar_order = content_similar_order.replace("TOTALBOXES",order.boxes.length)
+     
+      addressDetails = {
+      heading: similar_order,
+      content: content_similar_order,
+      confirm_wording: confirm_word,
+      cancel_wording: cancel_word,
+    };
+    break
+  }
+  }
 
-        content_similar_order = content_similar_order.replace("ORDERNAME",order.fname," "+lname)
-        content_similar_order = content_similar_order.replace("ADDRESS",order.street_address)
-        content_similar_order = content_similar_order.replace("TOTALBOXES",order.boxes.length)
-        return {
-        heading: similar_order,
-        content: content_similar_order,
-        confirm_wording: confirm_word,
-        cancel_wording: cancel_word,
-      };
-    }
-  });
-  return false;
+  return addressDetails || false;
 };
 
-const admin_override_order = () => {
-    
+const admin_override_order = (orders,userPass,storePass,confirmedStatus) => {
+    if(userPass === storePass) {
+      orders.forEach((order) => {
+        order.boxes.forEach((box) => {
+          if (!confirmedStatus.includes(box.status.type)) {
+            box.status.type = "MANUALLY_CONFIRMED";
+            box.status.description = "Box manually confirmed.";
+            box.status.driver_id = userId;
+          }
+        });
+        order.save()
+      });
+      return orders;
+    }
 }
 module.exports = {
   start_delivery_manually_confirm,

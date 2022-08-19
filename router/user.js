@@ -41,6 +41,11 @@ router.post(
   validate,
   userController.add_user_image
 );
+router.get(
+  "/home",
+  isAuth,
+  userController.loadView
+);
 router.post("/login", driverLoginValidationRules(), userController.login);
 router.post("/logout", isAuth, userController.logout);
 router.put("/refreshtoken", userController.refreshToken);

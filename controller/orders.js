@@ -5,6 +5,8 @@ const Reason = require("../model/reason");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
 
+
+
 exports.addOrdersForTest = async (req, res) => {
   try {
     const order = new Orders(req.body);
@@ -48,6 +50,7 @@ exports.addOrdersForTest = async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
+
 
 //fetching all user's orders
 //order_entry_method = 3

@@ -629,7 +629,103 @@ exports.debug_temp = async(req,res) => {
     .send({ status: failed_status, statusCode: 400, error: err });
   }
 }
+/**
+ * @swagger
+ * /home:
+ *   get:
+ *     summary: when token gets expired use this endpoint to get new token
+ *     tags: [user]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/refresh_token'
+ *     responses:
+ *       200:
+ *         description: Returns new token for authorization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+  *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
 
+exports.loadView = async (req,res) => {
+  let responseObj;
+  try {
+    //fetching user using user id
+    const user = await User.findOne({ _id: req.user.userId });
+    const storeUsers = await User.find({store_id: user.store_id})
+    let allUsers = storeUsers.map(user =>  user.username)
+    // checking for user language
+    success_status =
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH; 
+        // welcome_msg =
+        // user.Language == 1
+        //   ? process.env.WELCOME_MSG3_ENGLISH
+        //   : process.env.WELCOME_MSG3_SPANISH
+        welcome_msg1 =
+        user.Language == 1
+          ? process.env.WELCOME_MSG1_ENGLISH
+          : process.env.WELCOME_MSG1_SPANISH
+          welcome_msg3 =
+          user.Language == 1
+            ? process.env.WELCOME_MSG3_ENGLISH
+            : process.env.WELCOME_MSG3_SPANISH
+      welcome_warning =
+        user.Language == 1
+          ? process.env.WELCOME_WARNING_ENGLISH
+          : process.env.WELCOME_WARNING_SPANISH; 
+          welcome_content=
+          user.Language == 1
+            ? process.env.WELCOME_CONTENT_ENGLISH
+            : process.env.WELCOME_CONTENT_SPANISH; 
+          
+          responseObj = {
+            content: welcome_content,
+            warning: welcome_warning
+          }
+        if(user.orders_entry_method == 1) {
+          responseObj.heading = user.username+welcome_msg1
+
+        } else if(user.orders_entry_method == 3) {
+          responseObj.heading = user.username+welcome_msg3
+        } else {
+          responseObj.heading = user.username+welcome_msg3
+        }
+        res.status(200).send({
+          status: success_status,
+          statusCode: 200,
+          message:responseObj,
+          data: allUsers
+        })
+  } catch (err) {
+    console.log(err);
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
 /**
  *   @swagger
  *   components:
