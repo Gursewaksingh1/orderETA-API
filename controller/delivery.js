@@ -4,19 +4,31 @@ const Orders = require("../model/orders");
 const Store = require("../model/store");
 const moment = require("moment");
 const lodash = require("lodash");
-
+const {
+  start_delivery_manually_confirm,
+  check_similar_address,
+} = require("../shared/delivery");
 exports.startDelivery = async (req, res) => {
   let userId = req.user.userId;
   let orderIds = req.body.orderIds;
-  let query,check = false;
-  let allow_manully_confirm = req.body.manullyConfirm ?? true
-    
+  let query,
+    check = false;
+  let allow_manully_confirm = req.body.manullyConfirm ?? false;
+  let admin_override = req.body.admin_override ?? false;
+  let objectIds = [];
+  let newOrdersArr;
   let missingBoxes = "";
   notConfirmedBoxes = false;
   let new_orders, success_status, failed_status, info_changed;
   let box_not_scanned1, box_not_scanned2;
   let acceptedStatus = ["IN_STORE", "RETURNED", "MANUALLY_DELETED"];
-  let confirmedStatus = ["SCANNED_IN", "MANUALLY_CONFIRMED", "SCANNED_OUT", "MANUALLY_SCANNED_OUT", "MANUALLY_DELIVERED"]
+  let confirmedStatus = [
+    "SCANNED_IN",
+    "MANUALLY_CONFIRMED",
+    "SCANNED_OUT",
+    "MANUALLY_SCANNED_OUT",
+    "MANUALLY_DELIVERED",
+  ];
   let date_sent_to_device_check = moment(new Date()).format(
     process.env.YYYYMMDD
   );
@@ -25,7 +37,7 @@ exports.startDelivery = async (req, res) => {
     .format(process.env.YYYYMMDD);
   try {
     const user = await User.findOne({ _id: userId });
-user.is_segueing = user.is_segueing ?? 0
+    user.is_segueing = user.is_segueing ?? 0;
     success_status =
       user.Language == 1
         ? process.env.SUCCESS_STATUS_ENGLISH
@@ -50,7 +62,15 @@ user.is_segueing = user.is_segueing ?? 0
       user.Language == 1
         ? process.env.BOX_NOT_SCANNED2_ENGLISH
         : process.env.BOX_NOT_SCANNED2_SPANISH;
-    BOX_NOT_SCANNED2_SPANISH;
+        cant_scan=
+        user.Language == 1
+          ? process.env.CANT_SCAN_ENGLISH
+          : process.env.CANT_SCAN_SPANISH;
+          cancel_Start_delivery =
+        user.Language == 1
+          ? process.env.CANCEL_START_DELIVERY_ENGLISH
+          : process.env.CANCEL_START_DELIVERY_ENGLISH;
+    ;
     //if load_in_late_orders_too is undefined then set zero
 
     user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0;
@@ -66,11 +86,15 @@ user.is_segueing = user.is_segueing ?? 0
         days_in_past_to_import: "days_in_past_to_import",
         confirm_orders_no_swipe: "confirm_orders_no_swipe",
         disallow_missing_boxes: "disallow_missing_boxes",
+        check_similar_street: "check_similar_street",
+        check_similar_address: "check_similar_address",
       }
     );
-    store.disallow_missing_boxes =  store.disallow_missing_boxes ?? 0
+    store.disallow_missing_boxes = store.disallow_missing_boxes ?? 0;
     store.days_in_past_to_import = store.days_in_past_to_import ?? 1;
     store.confirm_orders_no_swipe = store.confirm_orders_no_swipe ?? 0;
+    store.check_similar_address = store.check_similar_address ?? 0;
+    store.check_similar_street = store.check_similar_street ?? 0;
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
     if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
@@ -131,26 +155,23 @@ user.is_segueing = user.is_segueing ?? 0
         }
       });
     });
-    newArr = lodash.uniq(allOrders, orders, "order_id");
+    newOrdersArr = lodash.uniq(allOrders, orders, "order_id");
+
     //if new orders are available then send all order and msg
     if (uniqueResult.length !== 0) {
-      return res
-        .status(200)
-        .send({
-          status: success_status,
-          statusCode: 200,
-          data: newArr,
-          message: new_orders,
-        });
+      return res.status(200).send({
+        status: success_status,
+        statusCode: 200,
+        data: newOrdersArr,
+        message: new_orders,
+      });
     } else if (check) {
-      return res
-        .status(200)
-        .send({
-          status: success_status,
-          statusCode: 200,
-          data: newArr,
-          message: info_changed,
-        });
+      return res.status(200).send({
+        status: success_status,
+        statusCode: 200,
+        data: newOrdersArr,
+        message: info_changed,
+      });
     }
 
     //step 2
@@ -166,47 +187,73 @@ user.is_segueing = user.is_segueing ?? 0
         });
       });
     }
-      //here we check if anyone box had acceptedStatus
-      if (notConfirmedBoxes) {
-        //if store allows user to manully confirm order at the time of start delivery 
-        if(store.disallow_missing_boxes != 1) {
-          return res
-          .status(400)
-          .send({
-            status: failed_status,
-            statusCode: 400,
-            Heading: box_not_scanned1 + missingBoxes + box_not_scanned2,
-            subHeading1: "i can't scan these boxes",
-            subHeading2:"Manager override",
-            subHeading3: "Cancel, I will look for them"
-          });
-        
-        } else {
-          return res
-          .status(400)
-          .send({
-            status: failed_status,
-            statusCode: 400,
-            Heading: box_not_scanned1 + missingBoxes + box_not_scanned2,
-            subHeading2:"Manager override",
-            subHeading3: "Cancel, I will look for them"
-          });
-        } 
+    //here we check if anyone box had acceptedStatus
+    if (notConfirmedBoxes) {
+      
+      //if store allows user to manully confirm order at the time of start delivery
+      if (store.disallow_missing_boxes != 1) {
+     let   responseObj = {
+          status: failed_status,
+          statusCode: 400,
+          subHeading1: cant_scan,
+          subHeading3: cancel_Start_delivery
+        }
+    
       }
-      if(allow_manully_confirm) {
-        if(user.is_segueing== 1) {
-          return res
-          .status(400)
-          .send({
-            status: failed_status,
-            statusCode: 400,
-            message: missingBoxes
+      if(user.Language == 1) {
+        responseObj.subHeading2 = "Manager override"
+      }
+        return res.status(400).send(responseObj);
+    }
+    //allow_manully_confirm is a flag and it would be true when user select option i can't scan boxes
+    if (allow_manully_confirm) {
+      if (user.is_segueing == 1) {
+        return res.status(400).send({
+          status: failed_status,
+          statusCode: 400,
+          message: missingBoxes,
+        });
+      } else {
+        //this else block will work when user selected option "i can't scan orders"
+        allOrders = start_delivery_manually_confirm(
+          allOrders,
+          confirmedStatus,
+          req.user.userId
+        );
+        
+      }
+      if(admin_override && user.Language == 1) {
+        return res.status(200).send({
+          status:success_status,
+          statusCode:200,
+          message: {
+            heading: "Admin can let you avoid marking each box this by typing password:",
+            content: "Enter manager password:",
+
+          }
+        })
+      }
+      if (
+        store.check_similar_street == 1 ||
+        store.check_similar_address == 1
+      ) {
+
+        let result = await check_similar_address(
+          Orders,
+          store.check_similar_address,
+          store.check_similar_street
+        );
+        //if we found any similar address then slow alert
+        if (result) {
+          res.status(200).send({
+            status: success_status,
+            statusCode: 200,
+            type:"alert",
+            message: result,
           });
-        } else {
-        allOrders = start_delivery_manually_confirm(allOrders,confirmedStatus,req.user.userId)
         }
       }
-
+    }
   } catch (err) {
     console.log(err);
     res

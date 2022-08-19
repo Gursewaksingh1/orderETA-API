@@ -415,7 +415,7 @@ exports.getOrderByOrderId = async (req, res) => {
  *      - in: path
  *        name: byseq
  *        schema:
- *          type: number
+ *          type: string
  *        required: true
  *        description: Seq number
  *      - in: query
