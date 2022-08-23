@@ -100,7 +100,8 @@ const admin_override_order = (orders,userPass,storePass,confirmedStatus) => {
       return orders;
     }
 }
+
 module.exports = {
   start_delivery_manually_confirm,
-  check_similar_address,
+  check_similar_address,admin_override_order
 };

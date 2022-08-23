@@ -1,12 +1,12 @@
 const User = require("../model/user");
-const DriverSteps = require("../model/driversteps");
+// const DriverSteps = require("../model/driversteps");
 const Orders = require("../model/orders");
 const Store = require("../model/store");
 const moment = require("moment");
-const lodash = require("lodash");
+// const lodash = require("lodash");
 const {
   start_delivery_manually_confirm,
-  check_similar_address,
+  check_similar_address,admin_override_order
 } = require("../shared/delivery");
 exports.startDelivery = async (req, res) => {
   let userId = req.user.userId;
@@ -195,7 +195,7 @@ console.log(uniqueResult);
       });
     }
     //here we check if anyone box had acceptedStatus
-    if (notConfirmedBoxes && store.disallow_missing_boxes != 1 && !allow_manully_confirm) {
+    if (!notConfirmedBoxes && store.disallow_missing_boxes != 1 && !allow_manully_confirm &&!admin_override) {
      
         responseObj = {
           status: failed_status,
@@ -226,7 +226,9 @@ console.log(uniqueResult);
         );
         
       }
-      if(!admin_override && user.Language == 1) {
+    }
+      console.log("password");
+      if(admin_override && user.Language == 1 && !password) {
         return res.status(200).send({
           status:success_status,
           statusCode:200,
@@ -236,7 +238,7 @@ console.log(uniqueResult);
 
           }
         })
-      } else if(admin_override) {
+      } else if(admin_override && password) {
         admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
       }
       if (
@@ -262,7 +264,7 @@ console.log(uniqueResult);
           });
         }
       }
-    }
+    
     res.status(200).send({status:success_status,data:allOrders})
   } catch (err) {
     console.log(err);
@@ -271,6 +273,7 @@ console.log(uniqueResult);
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+
 // exports.startDelivery = async (req, res) => {
 //   let {
 //     startLatitude,

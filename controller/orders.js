@@ -171,7 +171,10 @@ exports.getOrders = async (req, res) => {
     let orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-
+      //if confirm_orders_no_swipe is 1 or true then all the orders will be scanned or confirmed automatically
+    if(user.confirm_orders_no_swipe) {
+      confirm_orders(orders)
+    }
     let newOrders = orders.map((order) => {
       // const copy= {...order}
       if (order.boxes_scanned_in == order.total_boxes) {
@@ -750,6 +753,7 @@ exports.deleteOrder = async (req, res) => {
   }
 };
 exports.confirmBarCode = async (req, res) => {
+  // not used
   let success_status, failed_status, err_barcode;
   let userId = req.user.userId;
   try {
@@ -1705,6 +1709,7 @@ exports.manullyConfirmOrder = async (req, res) => {
             "Box manually confirmed by non scanning user.";
           updated_order.boxes[i].status.driver_id = req.user.userId;
         }
+        updated_order.boxes_scanned_in = updated_order.boxes.length
         updated_order.save();
         res.status(200).send({
           status: success_status,
@@ -1743,6 +1748,7 @@ exports.manullyConfirmOrder = async (req, res) => {
 
             updated_order.boxes[i].status.driver_id = req.user.userId;
           }
+        updated_order.boxes_scanned_in = updated_order.boxes.length
           updated_order.save();
           res.status(200).send({
             status: success_status,

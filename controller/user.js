@@ -639,8 +639,6 @@ exports.debug_temp = async(req,res) => {
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/refresh_token'
  *     responses:
  *       200:
  *         description: Returns new token for authorization
@@ -716,6 +714,7 @@ exports.loadView = async (req,res) => {
         res.status(200).send({
           status: success_status,
           statusCode: 200,
+          orderEntryMethod:user.orders_entry_method,
           message:responseObj,
           data: allUsers
         })
