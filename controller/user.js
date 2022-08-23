@@ -633,7 +633,7 @@ exports.debug_temp = async(req,res) => {
  * @swagger
  * /home:
  *   get:
- *     summary: when token gets expired use this endpoint to get new token
+ *     summary: this api gives all the home page messages in multi language and store users
  *     tags: [user]
  *     responses:
  *       200:
