@@ -635,10 +635,6 @@ exports.debug_temp = async(req,res) => {
  *   get:
  *     summary: when token gets expired use this endpoint to get new token
  *     tags: [user]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
  *     responses:
  *       200:
  *         description: Returns new token for authorization
