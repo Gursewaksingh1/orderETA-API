@@ -85,8 +85,10 @@ const check_similar_address = async (
   return addressDetails || false;
 };
 
-const admin_override_order = (orders,userPass,storePass,confirmedStatus) => {
-    if(userPass === storePass) {
+const admin_override_order = (orders,userPass,storePass,confirmedStatus,userId) => {
+  console.log(userPass,storePass);
+    if(userPass == storePass) {
+      console.log("pass matched");
       orders.forEach((order) => {
         order.boxes.forEach((box) => {
           if (!confirmedStatus.includes(box.status.type)) {
@@ -95,9 +97,11 @@ const admin_override_order = (orders,userPass,storePass,confirmedStatus) => {
             box.status.driver_id = userId;
           }
         });
-        order.save()
+        order.save();
       });
       return orders;
+    } else {
+      return false;
     }
 }
 

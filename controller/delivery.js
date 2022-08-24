@@ -160,7 +160,7 @@ exports.startDelivery = async (req, res) => {
     //   });
     // });
     allOrders = [...allOrders, ...uniqueResult]
-console.log(uniqueResult);
+
     //newOrdersArr = lodash.uniqBy(allOrders, "order_id"); 
 
     //if new orders are available then send all order and msg
@@ -240,8 +240,18 @@ console.log(uniqueResult);
           }
         })
       } else if(admin_override && password) {
-      admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
-      }
+     adminResponse =  admin_override_order(allOrders,password,store.admin_pass,confirmedStatus,userId)
+        if(adminResponse) {
+          allOrders = adminResponse
+        } else {
+          return res.status(404).send({status:success_status,statusCode:404,error:{
+            title: "WRONG PASSWORD!!",
+            heading: "Admin can let you avoid marking each box this by typing password:",
+            content: "Enter manager password:",
+
+          }})
+        }
+    }
       if (
         store.check_similar_street == 1 ||
         store.check_similar_address == 1
