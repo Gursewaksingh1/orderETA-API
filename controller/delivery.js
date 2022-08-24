@@ -8,6 +8,57 @@ const {
   start_delivery_manually_confirm,
   check_similar_address,admin_override_order
 } = require("../shared/delivery");
+
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     start_delivery:
+ *       type: object
+ *       required:
+ *         - orderIds
+ *       properties:
+ *         refreshToken:
+ *           type: Array
+ *           description: array of order ids
+ *       example:
+ *           orderIds: ["99574783430","9957478343990"]
+ */ 
+/**
+ * @swagger
+ * /delivery:
+ *   post:
+ *     summary: when token gets expired use this endpoint to get new token
+ *     tags: [delivery]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/start_delivery'
+ *     responses:
+ *       200:
+ *         description: Returns new token for authorization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+  *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
 exports.startDelivery = async (req, res) => {
   let userId = req.user.userId;
   let orderIds = req.body.orderIds;
@@ -284,7 +335,16 @@ exports.startDelivery = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-
+exports.updateOrders = async (req,res) => {
+  try {
+    
+  } catch (err) {
+    console.log(err);
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+}
 // exports.startDelivery = async (req, res) => {
 //   let {
 //     startLatitude,
