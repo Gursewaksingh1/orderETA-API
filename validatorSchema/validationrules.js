@@ -55,36 +55,19 @@ const update_user_stops = () => {
 }
 const deliveryValidationRules = () => {
   return [
-    body("step_string").trim()
-    .custom(async (stepString , { req })=> {
+    body("orderIds")
+    .custom(async (orderIds , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
-      customVerify(stepString,user,"string","cadena","step_string")
-      return stepString
-    }),
-    body("startLatitude").trim()
-    .custom(async (startLatitude , { req })=> {
-      const user = await User.findOne({_id:req.user.userId})
-      customVerify(startLatitude,user,"number","número","startLatitude")
-      return startLatitude
-    }),
-    body("startLongitude").trim()
-    .custom(async (startLongitude , { req })=> {
-      const user = await User.findOne({_id:req.user.userId})
-      customVerify(startLongitude,user,"number","número","startLongitude")
-      return startLongitude
-    }),
-    body("endLatitude").trim()
-    .custom(async (endLatitude , { req })=> {
-      const user = await User.findOne({_id:req.user.userId})
-      customVerify(endLatitude,user,"number","número","endLatitude")
-      return endLatitude
-    }),
-    body("endLongitude").trim()
-    .custom(async (endLongitude , { req })=> {
-      const user = await User.findOne({_id:req.user.userId})
-      customVerify(endLongitude,user,"number","número","endLongitude")
-      return endLongitude
-    }),
+      if(typeof orderIds != "object" ||orderIds.length == 0) {
+        if(user.Language ==1) {
+          throw Error(`orderIds must not be empty and it should be array`)
+        } else if (user.Language ==2) {
+          throw Error(`orderIds no debe estar vacío y debe ser una array`)
+      }
+    }
+      return orderIds
+    })
+    
   ];
 };
 
@@ -246,39 +229,39 @@ const validateSeqNumber = () => {
   ];
 };
 
-// const validate_driver_steps = () => {
-//   return [
-//     body("route_started")
-//       .notEmpty()
-//       .withMessage("route started must not be empty")
-//       .isDate()
-//       .withMessage("route started field must be in (yyyy-mm-dd) format"),
-//     body("longitude")
-//       .notEmpty()
-//       .withMessage("longitude must not be empty")
-//       .isDecimal()
-//       .withMessage("longitude must be a number")
-//       .isFloat({ min: -180, max: 180 })
-//       .withMessage("longitude must be between -180 and 180"),
-//     body("latitude")
-//       .notEmpty()
-//       .withMessage("latitude must not be empty")
-//       .isDecimal()
-//       .withMessage("latitude must be a number")
-//       .isFloat({ min: -90, max: 90 })
-//       .withMessage("latitude must be between -90 and 90"),
-//     body("step_string")
-//       .notEmpty()
-//       .withMessage("step_string msut not empty")
-//       .isString()
-//       .withMessage("step_string should be a string"),
-//     body("step_type")
-//       .notEmpty()
-//       .withMessage("step_type must not be empty")
-//       .isNumeric()
-//       .withMessage("step_type must be a number"),
-//   ];
-// };
+const validate_driver_steps = () => {
+  return [
+    body("route_started")
+      .notEmpty()
+      .withMessage("route started must not be empty")
+      .isDate()
+      .withMessage("route started field must be in (yyyy-mm-dd) format"),
+    body("longitude")
+      .notEmpty()
+      .withMessage("longitude must not be empty")
+      .isDecimal()
+      .withMessage("longitude must be a number")
+      .isFloat({ min: -180, max: 180 })
+      .withMessage("longitude must be between -180 and 180"),
+    body("latitude")
+      .notEmpty()
+      .withMessage("latitude must not be empty")
+      .isDecimal()
+      .withMessage("latitude must be a number")
+      .isFloat({ min: -90, max: 90 })
+      .withMessage("latitude must be between -90 and 90"),
+    body("step_string")
+      .notEmpty()
+      .withMessage("step_string msut not empty")
+      .isString()
+      .withMessage("step_string should be a string"),
+    body("step_type")
+      .notEmpty()
+      .withMessage("step_type must not be empty")
+      .isNumeric()
+      .withMessage("step_type must be a number"),
+  ];
+};
 const validate_driver_actions = () => {
   return [
     body("action").trim()

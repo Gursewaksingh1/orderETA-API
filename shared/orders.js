@@ -1,7 +1,7 @@
 const moment = require("moment");
 
 const lodash = require("lodash");
-function confirm_orders(orders,acceptedStatus) {
+function confirm_orders(orders) {
     let acceptedStatus = ["IN_STORE", "RETURNED", "NOT_CONFIRMED", "NOT_SCANNED_OUT", "NOT_DELIVERED", "MANUALLY_DELETED"]
     orders.forEach(order => {
        
@@ -16,7 +16,7 @@ function confirm_orders(orders,acceptedStatus) {
     })
 }
 
-function unVisitedOrders(orders) {
+function unvisitedorders(orders) {
     let Orders = []
     orders.forEach(order => {
         if(order.visited !== 1) {
@@ -26,7 +26,7 @@ function unVisitedOrders(orders) {
     return Orders
 }
 
-function uniqueOrders(orders) {
+function uniqueorders(orders) {
     let uniqueByLat =  lodash.uniqBy(orders, function (e) {
         return (e.Display_lng);
       });
@@ -51,7 +51,7 @@ function saveOrderDetails(order,user) {
 }
 module.exports = {
     confirm_orders,
-    unVisitedOrders,
-    uniqueOrders,
+    unvisitedorders,
+    uniqueorders,
     saveOrderDetails
 }

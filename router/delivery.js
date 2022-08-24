@@ -8,8 +8,8 @@ const validate = require("../validatorSchema/validatemiddleware");
 router.post(
   "/",
   isAuth,
-  // deliveryValidationRules(),
-  // validate,
+  deliveryValidationRules(),
+  validate,
   deliveryController.startDelivery
 );
 
