@@ -20,7 +20,7 @@ exports.startDelivery = async (req, res) => {
   let responseObj;
   let newOrdersArr;
   let missingBoxes = "";
-  notConfirmedBoxes = false;
+  let notConfirmedBoxes = false;
   let new_orders, success_status, failed_status, info_changed;
   let box_not_scanned1, box_not_scanned2;
   let acceptedStatus = ["IN_STORE", "RETURNED", "MANUALLY_DELETED"];
@@ -76,6 +76,7 @@ exports.startDelivery = async (req, res) => {
     //if load_in_late_orders_too is undefined then set zero
 
     user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0;
+    user.starting_point = user.starting_point ?? 0;
     //step 1
     //fetching store doc of logged in user
     let store = await findData(
@@ -195,7 +196,7 @@ console.log(uniqueResult);
       });
     }
     //here we check if anyone box had acceptedStatus
-    if (!notConfirmedBoxes && store.disallow_missing_boxes != 1 && !allow_manully_confirm &&!admin_override) {
+    if (notConfirmedBoxes && store.disallow_missing_boxes != 1 && !allow_manully_confirm &&!admin_override) {
      
         responseObj = {
           status: failed_status,
@@ -227,7 +228,7 @@ console.log(uniqueResult);
         
       }
     }
-      console.log("password");
+  
       if(admin_override && user.Language == 1 && !password) {
         return res.status(200).send({
           status:success_status,
@@ -239,7 +240,7 @@ console.log(uniqueResult);
           }
         })
       } else if(admin_override && password) {
-        admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
+      allOrders = admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
       }
       if (
         store.check_similar_street == 1 ||
