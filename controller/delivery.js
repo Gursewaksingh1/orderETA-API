@@ -240,7 +240,7 @@ console.log(uniqueResult);
           }
         })
       } else if(admin_override && password) {
-      allOrders = admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
+      admin_override_order(allOrders,password,store.admin_pass,confirmedStatus)
       }
       if (
         store.check_similar_street == 1 ||
