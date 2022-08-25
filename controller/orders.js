@@ -4,7 +4,7 @@ const Store = require("../model/store");
 const Reason = require("../model/reason");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
-
+const Language = require("../model/language")
 
 
 exports.addOrdersForTest = async (req, res) => {
@@ -57,13 +57,8 @@ exports.addOrdersForTest = async (req, res) => {
 exports.getOrders = async (req, res) => {
   let order_per_page = 10;
   let order_length;
+  let failedStatus;
   let pageNo = req.query.page || 1;
-  let success_status,
-    failed_status,
-    wrong_page_no_msg,
-    No_order_available,
-    ready,
-    unconfirmed;
   let userId = req.user.userId;
   let query;
   let date_sent_to_device_check = moment(new Date()).format(
@@ -77,41 +72,18 @@ exports.getOrders = async (req, res) => {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    wrong_page_no_msg =
-      user.Language == 1
-        ? process.env.WORONG_PAGE_NO_MSG_ENGLISH
-        : process.env.WORONG_PAGE_NO_MSG_SPANISH;
-    No_order_available =
-      user.Language == 1
-        ? process.env.NO_ORDER_AVAILABLE_ENGLISH
-        : process.env.NO_ORDER_AVAILABLE_SPANISH;
-    unconfirmed =
-      user.Language == 1
-        ? process.env.UNCONFIRMED_ENGLISH
-        : process.env.UNCONFIRMED_SPANISH;
-    ready =
-      user.Language == 1
-        ? process.env.READY_ENGLISH
-        : process.env.READY_SPANISH;
-    // }
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     //if load_in_late_orders_too is undefined then set zero
 
     user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0;
-
     //if page number is incorrect
     if (pageNo < 1 || null) {
       return res.status(400).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 400,
-        error: wrong_page_no_msg,
+        error: langObj.wrong_page_no,
       });
     }
     //fetching store doc of logged in user
@@ -189,13 +161,13 @@ exports.getOrders = async (req, res) => {
     //if orders array length is empty and page no is 1 then throw responce
     if (order_length == 0 && pageNo >= 1) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
-        error: No_order_available,
+        error: langObj.no_order_available,
       });
     }
     res.status(200).send({
-      status: success_status,
+      status: langObj.success_status,
       statusCode: 200,
       order_length,
       store,
@@ -205,7 +177,7 @@ exports.getOrders = async (req, res) => {
     console.log(err);
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 

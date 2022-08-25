@@ -2,6 +2,7 @@ const User = require("../model/user");
 // const DriverSteps = require("../model/driversteps");
 const Orders = require("../model/orders");
 const Store = require("../model/store");
+const Language = require("../model/language");
 const moment = require("moment");
 const lodash = require("lodash");
 const {
@@ -10,7 +11,7 @@ const {
   admin_override_order,
 } = require("../shared/delivery");
 let { uniqueorders, unvisitedorders } = require("../shared/orders");
-const { findOne } = require("../model/user");
+
 /**
  *   @swagger
  *   components:
@@ -74,8 +75,7 @@ exports.startDelivery = async (req, res) => {
   let responseObj;
   let missingBoxes = "";
   let notConfirmedBoxes = false;
-  let new_orders, success_status, failed_status, info_changed;
-  let box_not_scanned1, box_not_scanned2;
+  let failedStatus;
   let acceptedStatus = ["IN_STORE", "RETURNED", "MANUALLY_DELETED"];
   let confirmedStatus = [
     "SCANNED_IN",
@@ -93,38 +93,9 @@ exports.startDelivery = async (req, res) => {
   try {
     const user = await User.findOne({ _id: userId });
     user.is_segueing = user.is_segueing ?? 0;
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    new_orders =
-      user.Language == 1
-        ? process.env.NEW_ORDERS_ENGLISH
-        : process.env.NEW_ORDERS_SPANISH;
-    info_changed =
-      user.Language == 1
-        ? process.env.INFO_CHANGED_ENGLISH
-        : process.env.INFO_CHANGED_SPANISH;
-    box_not_scanned1 =
-      user.Language == 1
-        ? process.env.BOX_NOT_SCANNED1_ENGLISH
-        : process.env.BOX_NOT_SCANNED1_SPANISH;
-    box_not_scanned2 =
-      user.Language == 1
-        ? process.env.BOX_NOT_SCANNED2_ENGLISH
-        : process.env.BOX_NOT_SCANNED2_SPANISH;
-    cant_scan =
-      user.Language == 1
-        ? process.env.CANT_SCAN_ENGLISH
-        : process.env.CANT_SCAN_SPANISH;
-    cancel_Start_delivery =
-      user.Language == 1
-        ? process.env.CANCEL_START_DELIVERY_ENGLISH
-        : process.env.CANCEL_START_DELIVERY_ENGLISH;
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     //if load_in_late_orders_too is undefined then set zero
 
     user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0;
@@ -133,7 +104,7 @@ exports.startDelivery = async (req, res) => {
 
     if (orderIds.length == 0) {
       return res.status(404).send({
-        status: success_status,
+        status: langObj.success_status,
         statusCode: 404,
         error: "orderIds array is empty",
       });
@@ -213,13 +184,16 @@ exports.startDelivery = async (req, res) => {
       });
     });
     allOrders = [...allOrders, ...uniqueResult];
-
+    langObj.additional_orders_heading.replace("$1", uniqueResult.length);
     //if new orders are available then send all order and msg
     if (uniqueResult.length !== 0) {
       return res.status(200).send({
-        status: success_status,
+        status: langObj.success_status,
         statusCode: 200,
-        message: new_orders,
+        responseObj: {
+          heading: langObj.additional_orders_heading,
+          content: langObj.additional_orders_content,
+        },
         data: allOrders,
       });
     }
@@ -245,22 +219,26 @@ exports.startDelivery = async (req, res) => {
       !admin_override
     ) {
       responseObj = {
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 400,
-        heading: box_not_scanned1 + missingBoxes + box_not_scanned2,
-        subHeading1: cant_scan,
-        subHeading3: cancel_Start_delivery,
+        heading: langObj.box_not_scanned_heading + missingBoxes,
+        missingBoxes: missingBoxes,
+        content: langObj.box_not_scanned_content,
+        Option1: langObj.box_not_scanned_option_1,
+        option3: langObj.box_not_scanned_option_3,
       };
       if (user.Language == 1) {
         responseObj.subHeading2 = "Manager override";
       }
-      return res.status(400).send(responseObj);
+      return res
+        .status(400)
+        .send({ status: failedStatus, statusCode: 400, responseObj });
     }
     //allow_manully_confirm is a flag and it would be true when user select option i can't scan boxes
     if (allow_manully_confirm) {
       if (user.is_segueing == 1) {
         return res.status(400).send({
-          status: failed_status,
+          status: failedStatus,
           statusCode: 400,
           message: missingBoxes,
         });
@@ -275,7 +253,7 @@ exports.startDelivery = async (req, res) => {
     }
     if (admin_override && user.Language == 1 && !password) {
       return res.status(200).send({
-        status: success_status,
+        status: langObj.success_status,
         statusCode: 200,
         message: {
           heading:
@@ -295,7 +273,7 @@ exports.startDelivery = async (req, res) => {
         allOrders = adminResponse;
       } else {
         return res.status(404).send({
-          status: success_status,
+          status: langObj.success_status,
           statusCode: 404,
           error: {
             title: "WRONG PASSWORD!!",
@@ -312,13 +290,13 @@ exports.startDelivery = async (req, res) => {
         store.check_similar_address,
         store.check_similar_street,
         Orders,
-        user.Language,
-        store.store_id
+        store.store_id,
+        langObj
       );
       //if we found any similar address then slow alert
       if (result) {
         return res.status(200).send({
-          status: success_status,
+          status: langObj.success_status,
           statusCode: 200,
           type: "alert",
           message: result,
@@ -336,7 +314,7 @@ exports.startDelivery = async (req, res) => {
       allOrders = lodash.orderBy(allOrders, ["sequence"], ["asc"]);
     }
     res.status(200).send({
-      status: success_status,
+      status: langObj.success_status,
       statusCode: 200,
       NO_GPS: user.no_gps,
       data: {
@@ -347,26 +325,20 @@ exports.startDelivery = async (req, res) => {
       },
     });
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 exports.updateOrders = async (req, res) => {
   const orderIds = req.body.orderIds;
   let userId = req.user.user_id;
+  let failedStatus;
   try {
     const user = await User.findOne({ _id: userId });
     user.is_segueing = user.is_segueing ?? 0;
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     const orderNo = await Orders.find({
       order_id: { $in: orderIds },
       visited: { $ne: 1 },
@@ -389,59 +361,54 @@ exports.updateOrders = async (req, res) => {
         if (presortedOrder.length !== 0) {
           order.sequence = index + 1;
         }
-          if (
-            order.boxes_scanned_in != order.total_boxes &&
-            user.orders_entry_method == 1
-          ) {
-            order.has_problem = 1;
-          }
-       
+        if (
+          order.boxes_scanned_in != order.total_boxes &&
+          user.orders_entry_method == 1
+        ) {
+          order.has_problem = 1;
+        }
       }
       order.save();
     });
-    res.status(200).send({status:success_status,statusCode:200,data:orders})
+    res
+      .status(200)
+      .send({ status: langObj.success_status, statusCode: 200, data: orders });
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
-exports.driverSteps = async (req,res) => {
-  const userId = req.user.userId
+exports.driverSteps = async (req, res) => {
+  const userId = req.user.userId;
+  let failedStatus;
   try {
     const user = await User.findOne({ _id: userId });
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-  const driverSteps = new DriverSteps({
-          step_date: new Date(),
-          route_started: req.body.original_route_started ?? "",
-          step_geopoint: [startLongitude, startLatitude],
-          user_id: req.user.userId,
-          step_string: req.body.step_string,
-          step_type: req.body.stepType,
-          _created_at: new Date(),
-          _updated_at: new Date(),
-        });
-        driverSteps.save();
-        res.status(201).send({
-          staus: success_status,
-          statusCode:201,
-          message: "driver step has been recorded",
-        });
-      } catch (err) {
-        res.status(400).send({ status:failed_status,statusCode:400, error: err });
-      }
- }
- exports.updateUser = async (req,res) => {
-  const userId = req.user.userId
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
+    const driverSteps = new DriverSteps({
+      step_date: new Date(),
+      route_started: req.body.original_route_started ?? "",
+      step_geopoint: [startLongitude, startLatitude],
+      user_id: req.user.userId,
+      step_string: req.body.step_string,
+      step_type: req.body.stepType,
+      _created_at: new Date(),
+      _updated_at: new Date(),
+    });
+    driverSteps.save();
+    res.status(201).send({
+      staus: langObj.success_status,
+      statusCode: 201,
+      message: "driver step has been recorded",
+    });
+  } catch (err) {
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
+exports.updateUser = async (req, res) => {
+  const userId = req.user.userId;
   const longitude = req.body.longitude;
   const latitude = req.body.latitude;
   const isDelivering = req.body.isDelivering;
@@ -450,12 +417,10 @@ exports.driverSteps = async (req,res) => {
   const original_route_started = req.body.original_route_started;
   const etaDateForParse = req.body.etaDateForParse;
   const addresses_yet_to_visit = req.body.addresses_yet_to_visit;
-  const orderId = req.body.orderId
-  let timeStamp = moment(new Date()).format(
-    "h:mm:ss a"
-  );
+  const orderId = req.body.orderId;
+  let timeStamp = moment(new Date()).format("h:mm:ss a");
   try {
-    const order = await findOne({order_id: orderId})
+    const order = await findOne({ order_id: orderId });
     const user = await User.findOne({ _id: userId });
     success_status =
       user.Language == 1
@@ -465,32 +430,38 @@ exports.driverSteps = async (req,res) => {
       user.Language == 1
         ? process.env.FAILED_STATUS_ENGLISH
         : process.env.FAILED_STATUS_SPANISH;
-
-        user.last_location = [longitude,latitude];
-        user.is_delivering = isDelivering;
-        user.total_addresses_in_run = total_addresses_in_run;
-        if(first_time) {
-        user.previous_stop = "Left the store to begin route";
-          user.eta_to_store = etaDateForParse;
-          user.original_route_started = original_route_started || null;
-          user.started_driving =  original_route_started || null;
-
-        }
-        user.addresses_yet_to_visit = addresses_yet_to_visit
-        if(order) {
-         
-          user.latest_action = `Was directed to drive to ${order.fname} at ${timeStamp}`
-          user.next_stop = `${order.fname} at ${order.street_address}`
-        } else {
-          user.latest_action =`Was directed to drive back to store at ${timeStamp}`
-          user.next_stop = "When left his last stop ETA to store was"
-        }
-        user.save()
-        res.status(200).send({status:success_status,statusCode:200,message:"user updated successfully"})
+        const language = await Language.findOne({ language_id: user.Language });
+        const langObj = JSON.parse(language.language_translation);
+        failedStatus = langObj.failed_status;
+    user.last_location = [longitude, latitude];
+    user.is_delivering = isDelivering;
+    user.total_addresses_in_run = total_addresses_in_run;
+    if (first_time) {
+      user.previous_stop = "Left the store to begin route";
+      user.eta_to_store = etaDateForParse;
+      user.original_route_started = original_route_started || null;
+      user.started_driving = original_route_started || null;
+    }
+    user.addresses_yet_to_visit = addresses_yet_to_visit;
+    if (order) {
+      user.latest_action = `Was directed to drive to ${order.fname} at ${timeStamp}`;
+      user.next_stop = `${order.fname} at ${order.street_address}`;
+    } else {
+      user.latest_action = `Was directed to drive back to store at ${timeStamp}`;
+      user.next_stop = "When left his last stop ETA to store was";
+    }
+    user.save();
+    res.status(200).send({
+      status: langObj.success_status,
+      statusCode: 200,
+      message: "user updated successfully",
+    });
   } catch (err) {
-    res.status(400).send({ status:failed_status,statusCode:400, error: err });
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
- }
+};
 // exports.startDelivery = async (req, res) => {
 //   let {
 //     startLatitude,

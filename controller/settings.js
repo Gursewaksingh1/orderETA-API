@@ -1,5 +1,5 @@
 const User = require("../model/user");
-
+const Language = require("../model/language");
 /**
  *   @swagger
  *   components:
@@ -14,7 +14,7 @@ const User = require("../model/user");
  *           description: language of user
  *       example:
  *          language: 1
- */ 
+ */
 
 /**
  * @swagger
@@ -59,11 +59,11 @@ const User = require("../model/user");
 
 exports.updateLanguage = async (req, res) => {
   let userId = req.user.userId;
-  let success_status, failed_status,update_user_failed;
+  let failedStatus, update_user_failed;
   try {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
-    
+
     //updating user language
     const update_User = await User.updateOne(
       { _id: userId },
@@ -71,32 +71,28 @@ exports.updateLanguage = async (req, res) => {
         Language: req.body.language,
       }
     );
-    success_status =
-      req.body.language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      req.body.language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    update_user_failed =
-      req.body.language == 1
-        ? process.env.UPDATE_USER_FAILED_ENGLISH
-        : process.env.UPDATE_USER_FAILED_SPANISH;
+
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     if (update_User.acknowledged == true) {
       res
         .status(200)
-        .send({ status: success_status, statusCode: 200, data: req.body.language });
+        .send({
+          status: langObj.success_status,
+          statusCode: 200,
+          data: req.body.language,
+        });
     } else {
       res.status(400).send({
-        status: failed_status,
+        status: failedStatus,
         statusCode: 400,
-        error: update_user_failed,
+        error: langObj.update_user_failed,
       });
     }
   } catch (err) {
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failedStatus, statusCode: 400, error: err });
   }
 };

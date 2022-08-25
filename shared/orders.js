@@ -12,8 +12,11 @@ function confirm_orders(orders) {
                 box.status.driver_id = userId;
 
             }
+            
         })
+        order.save();
     })
+
 }
 
 function unvisitedorders(orders) {

@@ -9,6 +9,7 @@ const start_delivery_manually_confirm = (orders, confirmedStatus, userId) => {
         box.status.driver_id = userId;
       }
     });
+    
     order.save()
   });
   return orders;
@@ -19,27 +20,11 @@ const check_similar_address = async (
   similar_adress,
   similar_street,
   Model,
-  language,
-  storeId
+  storeId,
+  langObj
 ) => {
   let addressDetails;
   let addressArray = [];
-  content_similar_order =
-    language == 1
-      ? process.env.CONTENT_SIMILAR_ORDER_ENGLISH
-      : process.env.CONTENT_SIMILAR_ORDER_SPANISH;
-  cancel_word =
-    language == 1
-      ? process.env.CANCEL_WORD_SIMILAR_ORDER_ENGLISH
-      : process.env.CANCEL_WORD_SIMILAR_ORDER_SPANISH;
-  confirm_word =
-    language == 1
-      ? process.env.CONFIRM_WORD_SIMILAR_ORDER_ENGLISH
-      : process.env.CONFIRM_WORD_SIMILAR_ORDER_SPANISH;
-  similar_order =
-    language == 1
-      ? process.env.SIMILAR_ORDER_ENGLISH
-      : process.env.SIMILAR_ORDER_SPANISH;
 //creating address array acc to condition
   orders.forEach((order) => {
     if (similar_street == 1) {
@@ -68,15 +53,15 @@ const check_similar_address = async (
   //if sirmialr address matches with any order address of simialrOrders then send response
   for(order of similarOrders) {
     if (addressArray.includes(order.street_address)) {
-      content_similar_order = content_similar_order.replace("ORDERNAME",order.fname," "+order.lname)
-      content_similar_order = content_similar_order.replace("ADDRESS",order.street_address)
-      content_similar_order = content_similar_order.replace("TOTALBOXES",order.boxes.length)
+      langObj.similar_order_found_content = content_similar_order.replace("$1",order.fname," "+order.lname)
+      langObj.similar_order_found_content = content_similar_order.replace("$2",order.street_address)
+      langObj.similar_order_found_content = content_similar_order.replace("$3",order.boxes.length)
      
       addressDetails = {
-      heading: similar_order,
+      heading: langObj.similar_order_found_heading,
       content: content_similar_order,
-      confirm_wording: confirm_word,
-      cancel_wording: cancel_word,
+      option1: langObj.similar_order_found_option_1,
+      option2: langObj.similar_order_found_option_2,
     };
     break
   }

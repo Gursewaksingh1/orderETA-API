@@ -5,11 +5,12 @@ const DriverActions = require("../model/driveractions");
 const User_Logout = require("../model/userwhitelist");
 const UserImage = require("../model/userimage");
 const Store = require("../model/store");
-const Debug_Temp = require("../model/debugtemp")
+const Debug_Temp = require("../model/debugtemp");
 const { validationResult } = require("express-validator");
 const HereInf = require("../model/hereinf");
 const Reason = require("../model/reason");
 const Logged_routing_request = require("../model/loggedroutingrequests");
+const Language = require("../model/language");
 /**
  *   @swagger
  *   components:
@@ -195,17 +196,21 @@ exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
   try {
+    const lan = await Language.findOne({ language_id: 1 });
+    // console.log(lan.language_translation);
+    ans = JSON.parse(lan.language_translation);
+    console.log(ans.success_status);
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
     success_status =
-    user.Language == 1
-      ? process.env.SUCCESS_STATUS_ENGLISH
-      : process.env.SUCCESS_STATUS_SPANISH;
-  failed_status =
-    user.Language == 1
-      ? process.env.FAILED_STATUS_ENGLISH
-      : process.env.FAILED_STATUS_SPANISH;
+      user.Language == 1
+        ? process.env.SUCCESS_STATUS_ENGLISH
+        : process.env.SUCCESS_STATUS_SPANISH;
+    failed_status =
+      user.Language == 1
+        ? process.env.FAILED_STATUS_ENGLISH
+        : process.env.FAILED_STATUS_SPANISH;
     res.status(200).send({
       status: success_status,
       statusCode: 200,
@@ -237,7 +242,7 @@ exports.updateUser = async (req, res) => {
       user.Language == 1
         ? process.env.UPDATE_USER_FAILED_ENGLISH
         : process.env.UPDATE_USER_FAILED_SPANISH;
-        //updating user
+    //updating user
     const update_User = await User.updateOne(
       { _id: userId },
       {
@@ -251,13 +256,11 @@ exports.updateUser = async (req, res) => {
         .status(200)
         .send({ status: success_status, statusCode: 200, data: update_User });
     } else {
-      res
-        .status(400)
-        .send({
-          status: failed_status,
-          statusCode: 400,
-          error: update_user_failed,
-        });
+      res.status(400).send({
+        status: failed_status,
+        statusCode: 400,
+        error: update_user_failed,
+      });
     }
   } catch (err) {
     res
@@ -265,7 +268,7 @@ exports.updateUser = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
- 
+
 /**
  * @swagger
  * /reason:
@@ -283,7 +286,7 @@ exports.updateUser = async (req, res) => {
  *       - bearerAuth: []
  */
 
-exports.getReason = async(req,res) => {
+exports.getReason = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
   try {
@@ -300,7 +303,7 @@ exports.getReason = async(req,res) => {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
     }
-    const reason = await Reason.find()
+    const reason = await Reason.find();
     res.status(200).send({
       status: success_status,
       statusCode: 200,
@@ -311,7 +314,7 @@ exports.getReason = async(req,res) => {
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
 
 /**
  * @swagger
@@ -330,7 +333,7 @@ exports.getReason = async(req,res) => {
  *       - bearerAuth: []
  */
 
-exports.getHereInf = async(req,res) => {
+exports.getHereInf = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
   try {
@@ -347,7 +350,7 @@ exports.getHereInf = async(req,res) => {
       success_status = process.env.SUCCESS_STATUS_ENGLISH;
       failed_status = process.env.FAILED_STATUS_ENGLISH;
     }
-    const hereInf = await HereInf.find({AppID:{$ne:55}})
+    const hereInf = await HereInf.find({ AppID: { $ne: 55 } });
     res.status(200).send({
       status: success_status,
       statusCode: 200,
@@ -358,7 +361,7 @@ exports.getHereInf = async(req,res) => {
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
 
 /**
  * @swagger
@@ -408,7 +411,7 @@ exports.get_store_of_logined_user = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-exports.post_Logged_routing_request = async(req,res) => {
+exports.post_Logged_routing_request = async (req, res) => {
   let userId = req.user.userId;
   let success_status, failed_status;
   try {
@@ -426,14 +429,14 @@ exports.post_Logged_routing_request = async(req,res) => {
       failed_status = process.env.FAILED_STATUS_ENGLISH;
     }
     const logged_routing_request = new Logged_routing_request({
-      store_id:user.store_id,
-      driver_name:user.username,
-      route_started:req.body.route_started,
-      the_url:req.body.the_url,
-      the_result:req.body.the_result,
-      url_date:new Date(),
-      createdAt:new Date(),
-      updatedAt:new Date()
+      store_id: user.store_id,
+      driver_name: user.username,
+      route_started: req.body.route_started,
+      the_url: req.body.the_url,
+      the_result: req.body.the_result,
+      url_date: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
     logged_routing_request.save();
     res.status(200).send({
@@ -446,7 +449,7 @@ exports.post_Logged_routing_request = async(req,res) => {
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
 exports.add_user_image = async (req, res) => {
   let success_status, failed_status, image_err, image_size_err;
   try {
@@ -554,8 +557,8 @@ exports.user_actions = async (req, res) => {
  *           type: string
  *           description: temp_desc_string is error msg
  *       example:
- *           temp_desc_string: catch 5catch number 5  catch 1catch 3waypoints_tester contains:Schwartz3 Sears Rd, waypoints_tester2 contains:Schwartz3 Sears Rd, waypoint contains:Schwartz3 Sears Rd, 
- */ 
+ *           temp_desc_string: catch 5catch number 5  catch 1catch 3waypoints_tester contains:Schwartz3 Sears Rd, waypoints_tester2 contains:Schwartz3 Sears Rd, waypoint contains:Schwartz3 Sears Rd,
+ */
 /**
  * @swagger
  * /debugtemp:
@@ -589,34 +592,33 @@ exports.user_actions = async (req, res) => {
  *       - bearerAuth: []
  */
 
-exports.debug_temp = async(req,res) => {
-  let temp_desc_string = req.body.temp_desc_string
-  let debug_temp_msg,success_status,failed_status;
+exports.debug_temp = async (req, res) => {
+  let temp_desc_string = req.body.temp_desc_string;
+  let debug_temp_msg, success_status, failed_status;
   try {
-
-     //fetching user using user id
-     const user = await User.findOne({ _id: req.user.userId });
-     // checking for user language
-     if (user.Language == 1) {
-       success_status = process.env.SUCCESS_STATUS_ENGLISH;
-       failed_status = process.env.FAILED_STATUS_ENGLISH;
-       debug_temp_msg = process.env.DEBUG_TEMP_ENGLISH;;
-     } else if (user.Language == 2) {
-       success_status = process.env.SUCCESS_STATUS_SPANISH;
-       failed_status = process.env.FAILED_STATUS_SPANISH;
-       debug_temp_msg = process.env.DEBUG_TEMP_SPANISH;
-     } else {
-       success_status = process.env.SUCCESS_STATUS_ENGLISH;
-       failed_status = process.env.FAILED_STATUS_ENGLISH;
-       debug_temp_msg = process.env.DEBUG_TEMP_ENGLISH;;
-     }
+    //fetching user using user id
+    const user = await User.findOne({ _id: req.user.userId });
+    // checking for user language
+    if (user.Language == 1) {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      debug_temp_msg = process.env.DEBUG_TEMP_ENGLISH;
+    } else if (user.Language == 2) {
+      success_status = process.env.SUCCESS_STATUS_SPANISH;
+      failed_status = process.env.FAILED_STATUS_SPANISH;
+      debug_temp_msg = process.env.DEBUG_TEMP_SPANISH;
+    } else {
+      success_status = process.env.SUCCESS_STATUS_ENGLISH;
+      failed_status = process.env.FAILED_STATUS_ENGLISH;
+      debug_temp_msg = process.env.DEBUG_TEMP_ENGLISH;
+    }
     debug_temp = new Debug_Temp({
       userId: req.user.userId,
-      temp_desc:temp_desc_string,
+      temp_desc: temp_desc_string,
       _createdAt: new Date(),
-      _updatedAt: new Date()
-    })
-    debug_temp.save()
+      _updatedAt: new Date(),
+    });
+    debug_temp.save();
     res.status(201).send({
       status: success_status,
       statusCode: 201,
@@ -625,10 +627,10 @@ exports.debug_temp = async(req,res) => {
   } catch (err) {
     console.log(err);
     res
-    .status(400)
-    .send({ status: failed_status, statusCode: 400, error: err });
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
   }
-}
+};
 /**
  * @swagger
  * /home:
@@ -642,7 +644,7 @@ exports.debug_temp = async(req,res) => {
  *           application/json:
  *             schema:
  *               type: object
-  *       422:
+ *       422:
  *         description: validation error
  *         content:
  *           application/json:
@@ -658,69 +660,43 @@ exports.debug_temp = async(req,res) => {
  *       - bearerAuth: []
  */
 
-exports.loadView = async (req,res) => {
-  let responseObj;
+exports.loadView = async (req, res) => {
+  let responseObj, failedStatus;
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: req.user.userId });
-    const storeUsers = await User.find({store_id: user.store_id})
-    let allUsers = storeUsers.map(user =>  user.username)
+    const storeUsers = await User.find({ store_id: user.store_id });
+    let allUsers = storeUsers.map((user) => user.username);
     // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH; 
-        // welcome_msg =
-        // user.Language == 1
-        //   ? process.env.WELCOME_MSG3_ENGLISH
-        //   : process.env.WELCOME_MSG3_SPANISH
-        welcome_msg1 =
-        user.Language == 1
-          ? process.env.WELCOME_MSG1_ENGLISH
-          : process.env.WELCOME_MSG1_SPANISH
-          welcome_msg3 =
-          user.Language == 1
-            ? process.env.WELCOME_MSG3_ENGLISH
-            : process.env.WELCOME_MSG3_SPANISH
-      welcome_warning =
-        user.Language == 1
-          ? process.env.WELCOME_WARNING_ENGLISH
-          : process.env.WELCOME_WARNING_SPANISH; 
-          welcome_content=
-          user.Language == 1
-            ? process.env.WELCOME_CONTENT_ENGLISH
-            : process.env.WELCOME_CONTENT_SPANISH; 
-          
-          responseObj = {
-            content: welcome_content,
-            warning: welcome_warning
-          }
-        if(user.orders_entry_method == 1) {
-          responseObj.heading = user.username+welcome_msg1
 
-        } else if(user.orders_entry_method == 3) {
-          responseObj.heading = user.username+welcome_msg3
-        } else {
-          responseObj.heading = user.username+welcome_msg3
-        }
-        res.status(200).send({
-          status: success_status,
-          statusCode: 200,
-          orderEntryMethod:user.orders_entry_method,
-          message:responseObj,
-          data: allUsers
-        })
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
+    responseObj = {
+      content: langObj.home_page_sub_heading,
+      warningTitle: langObj.warning,
+      warning: langObj.home_page_warning,
+    };
+    if (user.orders_entry_method == 1) {
+      responseObj.heading = user.username + "," + langObj.home_page_heading_1;
+    } else if (user.orders_entry_method == 3) {
+      responseObj.heading = user.username + "," + langObj.home_page_heading_3;
+    } else {
+      responseObj.heading = user.username + "." + langObj.home_page_heading_2;
+    }
+
+    res.status(200).send({
+      status: langObj.success_status,
+      statusCode: 200,
+      orderEntryMethod: user.orders_entry_method,
+      message: responseObj,
+      data: allUsers,
+    });
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
-}
+};
 /**
  *   @swagger
  *   components:
@@ -739,7 +715,7 @@ exports.loadView = async (req,res) => {
  *       example:
  *           username: yurashm
  *           password: 123456
- */ 
+ */
 /**
  * @swagger
  * /login:
@@ -833,8 +809,8 @@ exports.login = async (req, res) => {
             res.status(200).send({
               status: "success",
               statusCode: 200,
-              username:user.username,
-              language:user.Language,
+              username: user.username,
+              language: user.Language,
               token,
               refreshToken,
             });
@@ -865,7 +841,7 @@ exports.login = async (req, res) => {
  *           description: refreshToken for generating new token
  *       example:
  *           refreshToken: 345gffg65gh674gfdn567h56456fg
- */ 
+ */
 /**
  * @swagger
  * /refreshtoken:
@@ -885,7 +861,7 @@ exports.login = async (req, res) => {
  *           application/json:
  *             schema:
  *               type: object
-  *       422:
+ *       422:
  *         description: validation error
  *         content:
  *           application/json:
@@ -956,7 +932,7 @@ exports.refreshToken = async (req, res) => {
  *               items:
  *                 $ref: '#/components/schemas/User'
  *       403:
- *         description: invaild/empty token 
+ *         description: invaild/empty token
  *         content:
  *           application/json:
  *             schema:
@@ -965,7 +941,7 @@ exports.refreshToken = async (req, res) => {
  *       - bearerAuth: []
  */
 exports.logout = async (req, res) => {
-  let success_status, failed_status;
+  let failedStatus;
 
   let userId = req.user.userId;
   try {
@@ -973,19 +949,9 @@ exports.logout = async (req, res) => {
     // fetching user using user id
     const user = await User.findOne({ _id: req.user.userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      userLogout = process.env.USER_LOGOUT_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      userLogout = process.env.USER_LOGOUT_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      userLogout = process.env.USER_LOGOUT_ENGLISH;
-    }
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     //fetching token
     const auth = req.headers["authorization"];
     const token = auth && auth.split(" ")[1];
@@ -997,10 +963,12 @@ exports.logout = async (req, res) => {
     });
     res
       .status(200)
-      .send({ status: success_status, statusCode: 200, data: userLogout });
+      .send({
+        status: langObj.success_status,
+        statusCode: 200,
+        data: langObj.user_logout_success,
+      });
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
