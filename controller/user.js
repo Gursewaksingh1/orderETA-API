@@ -1,7 +1,6 @@
 const User = require("../model/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const DriverActions = require("../model/driveractions");
 const User_Logout = require("../model/userwhitelist");
 const UserImage = require("../model/userimage");
 const Store = require("../model/store");
@@ -194,32 +193,23 @@ const Language = require("../model/language");
 
 exports.getUser = async (req, res) => {
   let userId = req.user.userId;
-  let success_status, failed_status;
+  let failedStatus;
   try {
     const lan = await Language.findOne({ language_id: 1 });
-    // console.log(lan.language_translation);
-    ans = JSON.parse(lan.language_translation);
-    console.log(ans.success_status);
+    const langObj = JSON.parse(lan.language_translation);
+   failedStatus = langObj.failed_status
+  
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
-    // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
     res.status(200).send({
-      status: success_status,
+      status: langObj.success_status,
       statusCode: 200,
       data: user,
     });
   } catch (err) {
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -543,7 +533,6 @@ exports.user_actions = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
-
 /**
  *   @swagger
  *   components:

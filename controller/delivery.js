@@ -72,6 +72,7 @@ exports.startDelivery = async (req, res) => {
   let password = req.body.password;
   let allow_manully_confirm = req.body.manullyConfirm ?? false;
   let admin_override = req.body.adminOverride ?? false;
+  let similar_address = req.body.similarAddress ?? false
   let responseObj;
   let missingBoxes = "";
   let notConfirmedBoxes = false;
@@ -284,7 +285,7 @@ exports.startDelivery = async (req, res) => {
         });
       }
     }
-    if (store.check_similar_street == 1 || store.check_similar_address == 1) {
+    if (store.check_similar_street == 1 || store.check_similar_address == 1 && !similar_address) {
       let result = await check_similar_address(
         allOrders,
         store.check_similar_address,

@@ -4,8 +4,7 @@ const Store = require("../model/store");
 const Reason = require("../model/reason");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
-const Language = require("../model/language")
-
+const Language = require("../model/language");
 
 exports.addOrdersForTest = async (req, res) => {
   try {
@@ -50,7 +49,6 @@ exports.addOrdersForTest = async (req, res) => {
  *     security:
  *       - bearerAuth: []
  */
-
 
 //fetching all user's orders
 //order_entry_method = 3
@@ -143,9 +141,9 @@ exports.getOrders = async (req, res) => {
     let orders = await Orders.find(query)
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
-      //if confirm_orders_no_swipe is 1 or true then all the orders will be scanned or confirmed automatically
-    if(user.confirm_orders_no_swipe) {
-      confirm_orders(orders)
+    //if confirm_orders_no_swipe is 1 or true then all the orders will be scanned or confirmed automatically
+    if (user.confirm_orders_no_swipe) {
+      confirm_orders(orders);
     }
     let newOrders = orders.map((order) => {
       // const copy= {...order}
@@ -175,9 +173,7 @@ exports.getOrders = async (req, res) => {
     });
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failedStatus, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -217,9 +213,9 @@ exports.getOrders = async (req, res) => {
  */
 //order_entry_method = 1
 exports.get_orders_by_scan = async (req, res) => {
+  let failedStatus;
   let order_per_page = 10;
   let pageNo = req.query.page || 1;
-  let success_status, failed_status, wrong_page_no_msg, No_order_available;
   let userId = req.user.userId;
   let order_length;
 
@@ -229,32 +225,19 @@ exports.get_orders_by_scan = async (req, res) => {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_SPANISH;
-      No_order_available = process.env.NO_ORDER_AVAILABLE_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      wrong_page_no_msg = process.env.WORONG_PAGE_NO_MSG_ENGLISH;
-      No_order_available = process.env.NO_ORDER_AVAILABLE_ENGLISH;
-    }
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     //if page number is incorrect
     if (pageNo < 1 || null || undefined) {
       return res.status(400).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 400,
-        error: wrong_page_no_msg,
+        error: langObj.wrong_page_no,
       });
     }
     //fetching store doc of logged in user
-    store = await findData(
+    let store = await findData(
       Store,
       { store_id: user.store_id },
       {
@@ -314,22 +297,20 @@ exports.get_orders_by_scan = async (req, res) => {
     //if orders array length is empty and page no is 1 then throw responce
     if (order_length == 0 && pageNo >= 1) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
-        error: No_order_available,
+        error: langObj.no_order_available,
       });
     }
     res.status(200).send({
-      status: success_status,
+      status: langObj.success_status,
       statusCode: 200,
       order_length,
       store,
       data: newOrders,
     });
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 //fetching user order by order id
@@ -436,9 +417,8 @@ exports.getOrderByOrderId = async (req, res) => {
 exports.getOrderBySeq = async (req, res) => {
   let seq = req.params.byseq;
   let startDate = req.query.date;
-  console.log(startDate);
-  let success_status, failed_status, invaild_seq, invalid_box_status;
   let userId = req.user.userId;
+  let failedStatus;
   let acceptedStatus = [
     "NOT_CONFIRMED",
     "MANUALLY_DELETED",
@@ -454,18 +434,10 @@ exports.getOrderBySeq = async (req, res) => {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      invaild_seq = process.env.INVAILD_SEQ_ENGLISH;
-      invalid_box_status = process.env.INVALID_BOX_STATUS_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      invaild_seq = process.env.INVAILD_SEQ_SPANISH;
-      invalid_box_status = process.env.INVALID_BOX_STATUS_SPANISH;
-    }
-    store = await findData(
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
+    let store = await findData(
       Store,
       { store_id: user.store_id },
       {
@@ -478,10 +450,10 @@ exports.getOrderBySeq = async (req, res) => {
         { Seq: seq },
         { fname: seq },
         { lname: seq },
-        { street_address: seq },
+        { phone: seq },
         { cell1: seq },
         { cell2: seq },
-        { "street_address": { "$regex": seq, "$options": "i" } },
+        { street_address: { $regex: seq, $options: "i" } },
       ],
       $and: [
         {
@@ -499,9 +471,9 @@ exports.getOrderBySeq = async (req, res) => {
 
     if (order == null) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
-        error: invaild_seq,
+        error: langObj.invalid_search,
       });
     }
     //after getting order with seq number checking if boxes of order conatins any status
@@ -516,11 +488,26 @@ exports.getOrderBySeq = async (req, res) => {
         });
       });
     }
+    langObj.invalid_order_in_search_content =
+      langObj.invalid_order_in_search_content.replace(
+        "$1",
+        order.fname + " " + order.lname
+      );
+    langObj.invalid_order_in_search_content =
+      langObj.invalid_order_in_search_content.replace(
+        "$2",
+        order.street_address
+      );
+
     if (statusMatch > 0) {
-      return res.status(404).send({
-        status: failed_status,
-        statusCode: 404,
-        error: invalid_box_status,
+      return res.status(400).send({
+        status: langObj.failed_status,
+        statusCode: 400,
+        type: "alert",
+        responseObj: {
+          heading: langObj.invalid_order_in_search_heading,
+          content: langObj.invalid_order_in_search_content,
+        },
       });
     }
 
@@ -530,14 +517,35 @@ exports.getOrderBySeq = async (req, res) => {
     }
 
     order.save();
-    res
-      .status(200)
-      .send({ status: success_status, statusCode: 200, data: order });
+    langObj.order_in_search_heading = langObj.order_in_search_heading.replace(
+      "$1",
+      order.fname + " " + order.lname
+    );
+    langObj.order_in_search_content = langObj.order_in_search_content.replace(
+      "$1",
+      order.fname + " " + order.lname
+    );
+    langObj.order_in_search_content = langObj.order_in_search_content.replace(
+      "$2",
+      order.street_address
+    );
+    langObj.order_in_search_content = langObj.order_in_search_content.replace(
+      "$3",
+      order.boxes.length
+    );
+    res.status(200).send({
+      status: langObj.success_status,
+      statusCode: 200,
+      type: "alert",
+      responseObj: {
+        heading: langObj.order_in_search_heading,
+        content: langObj.order_in_search_content,
+      },
+      data: order,
+    });
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -653,45 +661,39 @@ exports.getOrderByCurrentDate = async (req, res) => {
  */
 
 exports.deleteOrder = async (req, res) => {
-  let success_status,
-    failed_status,
-    order_deleted_success,
-    ask_confirmation,
-    order_deleted_failed;
+  let failedStatus;
   let flag = req.body.flag ?? false;
   try {
     const user = await User.findOne({ _id: req.user.userId });
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    order_deleted_success =
-      user.Language == 1
-        ? process.env.DELETE_ORDER_ENGLISH
-        : process.env.DELETE_ORDER_SPANISH;
-    order_deleted_failed =
-      user.Language == 1
-        ? process.env.DELETE_ORDER_FAILED_ENGLISH
-        : process.env.DELETE_ORDER_FAILED_SPANISH;
-    ask_confirmation =
-      user.Language == 1
-        ? process.env.ASK_CONFIRMATION_ENGLISH
-        : process.env.ASK_CONFIRMATION_SPANISH;
-    ask_confirmation_msg =
-      user.Language == 1
-        ? process.env.ASK_CONFIRMATION_MSG_ENGLISH
-        : process.env.ASK_CONFIRMATION_MSG_SPANISH;
 
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     if (!flag) {
+      //fetching order
+      const order = await Orders.findOne({
+        order_id: req.body.orderId,
+        store_id: req.body.storeId,
+      });
+      if (order == null) {
+        return res
+          .status(404)
+          .send({
+            status: langObj.failed_status,
+            statusCode: 404,
+            error: langObj.invalid_order_id,
+          });
+      }
+      langObj.delete_order_confirmation_heading =
+        langObj.delete_order_confirmation_heading.replace(
+          "$1",
+          order.street_address
+        );
       return res.status(200).send({
-        status: failed_status,
+        status: langObj.success_status,
         statusCode: 200,
-        title: ask_confirmation,
-        message: ask_confirmation_msg,
+        heading: langObj.delete_order_confirmation_heading,
+        content: langObj.delete_order_confirmation_content,
       });
     }
     //delete order query
@@ -707,21 +709,20 @@ exports.deleteOrder = async (req, res) => {
     );
     if (order == null) {
       res.status(400).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 400,
-        error: order_deleted_failed,
+        error: langObj.order_deletion_failed,
       });
     } else if (order.deleted_from_device == 1) {
       res.status(200).send({
-        status: success_status,
+        status: langObj.success_status,
         statusCode: 200,
-        data: order_deleted_success,
+        data: langObj.order_deletion_success,
       });
     }
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 exports.confirmBarCode = async (req, res) => {
@@ -832,6 +833,7 @@ exports.confirmBarCode = async (req, res) => {
  */
 
 exports.scanOrderBox = async (req, res) => {
+  let failedStatus;
   let success_status,
     box_scan_msg_success,
     failed_status,
@@ -987,6 +989,9 @@ exports.scanOrderBox = async (req, res) => {
       user.Language == 1
         ? process.env.NOT_FOUND_ENGLISH
         : process.env.NOT_FOUND_SPANISH;
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     store = await findData(
       Store,
       { store_id: user.store_id },
@@ -1138,48 +1143,52 @@ exports.scanOrderBox = async (req, res) => {
     //     components.push("-01");
     //     break;
     // }
-
+    console.log(components);
     if (rawData.length < store.barcode_minimum) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
         type: "grid",
-        title: wrong_barcode,
-        error: invalid_barcode_len,
+        title: langObj.invalid_barcode_heading,
+        error: langObj.invalid_barcode_length,
       });
     } else if (store.barcode_type == "RDT" && rawData.includes("/") == false) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
         type: "grid",
-        title: wrong_barcode,
+        title: langObj.invalid_barcode_heading,
 
-        error: invalid_barcode,
+        error: langObj.invalid_barcode,
       });
     } else {
       if (components.length != 3) {
         return res.status(406).send({
-          status: failed_status,
+          status: langObj.failed_status,
           statusCode: 406,
           type: "grid",
-          title: wrong_barcode,
-          error: uncomplete_barcode,
+          title: langObj.invalid_barcode_heading,
+          error: langObj.uncomplete_barcode,
         });
       } else if (user.store_id != components[0]) {
+        langObj.invalid_storeId_in_barcode =
+          langObj.invalid_storeId_in_barcode.replace("$1", rawData);
         return res.status(404).send({
-          status: failed_status,
+          status: langObj.failed_status,
           statusCode: 402,
           type: "grid",
-          title: warning,
-          error: invalid_storeid,
+          title: langObj.warning,
+          error: langObj.invalid_storeId_in_barcode,
         });
       } else if (components[2] == null) {
+        langObj.invalid_boxNo_in_barcode =
+          langObj.invalid_boxNo_in_barcode.replace("$1", rawData);
         return res.status(404).send({
-          status: failed_status,
+          status: langObj.failed_status,
           statusCode: 404,
           type: "grid",
-          title: warning,
-          error: invalid_boxno,
+          title: langObj.warning,
+          error: langObj.missing_boxno_in_barcode,
         });
       }
     }
@@ -1187,6 +1196,7 @@ exports.scanOrderBox = async (req, res) => {
     storeId = components[0];
     orderId = components[1];
     boxNumber = parseInt(components[2]);
+
     //fetching order
     const order = await Orders.findOne({
       store_id: storeId,
@@ -1196,28 +1206,29 @@ exports.scanOrderBox = async (req, res) => {
     //if order is null
     if (order == null) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
         type: "alert",
-        title: not_found,
-        error: wrong_barcode,
+        title: langObj.order_not_found,
+        error: langObj.invalid_barcode_heading,
       });
     } else if (order.boxes.length == 0) {
       //if box arr exist but is empty
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
         type: "alert",
-        title: not_found,
-        error: wrong_barcode,
+        title: langObj.order_not_found,
+        error: langObj.invalid_barcode_heading,
       });
     } else if (order.boxes[boxNumber - 1] == undefined) {
+      console.log("jhvkgvguvhjjh");
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
         type: "alert",
-        title: not_found,
-        error: wrong_barcode,
+        title: langObj.order_not_found,
+        error: langObj.invalid_barcode_heading,
       });
     }
     // obj to send with each succes or failed response
@@ -1239,24 +1250,24 @@ exports.scanOrderBox = async (req, res) => {
       ) && //the driver id is also same as logged in user id
       order.status != 1
     ) {
-      responseObj.message = duplicate_scan;
+      responseObj.message = langObj.duplicate_scan;
 
       return res.status(400).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 400,
         type: "grid",
-        title: duplicate_scan,
+        title: langObj.duplicate_scan,
         error: responseObj,
       });
     }
     //if box number is zero throw error
     if (boxNumber == 0) {
-      responseObj.message = wrong_boxno;
+      responseObj.message = langObj.invalid_box_no;
       return res.status(204).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 204,
         type: "grid",
-        title: wrong_boxno,
+        title: langObj.invalid_box_no,
         error: responseObj,
       });
     }
@@ -1294,7 +1305,7 @@ exports.scanOrderBox = async (req, res) => {
     //first check if box array exist if user first time scanning or and status is not eq to 1
     if (order.boxes.length !== 0 && statusMatch && order.status != 1) {
       //check if user trying to scan someone else's order then throw response
-      //inside if check var will tell us if user gave permission for scanning else's order
+      //inside (if check) var will tell us if user gave permission for scanning else's order
 
       if (
         req.user.userId != order.user_id &&
@@ -1307,15 +1318,20 @@ exports.scanOrderBox = async (req, res) => {
           store_id: storeId,
           order_id: orderId,
         });
-        responseObj.message =
-          another_driver_order_msg + " " + order.driver_string;
+        langObj.another_driver_order_content = langObj.another_driver_order_content.replace(
+          "$2",order.driver_string
+        )
+        responseObj.message = langObj.another_driver_order_content.replace(
+          "$1",
+          order.fname+" "+order.lname
+        );
         responseObj.boxscanned = total_box_scan.boxes_scanned_in;
 
         return res.status(400).send({
           status: failed_status,
           statusCode: 401,
           type: "alert",
-          title: another_driver_order,
+          title: langObj.another_driver_order_heading,
           error: responseObj,
         });
       }
@@ -1479,13 +1495,18 @@ exports.scanOrderBox = async (req, res) => {
     } else {
       //old app requirement when strict_box_scan_in ==1 then only through this response
       if (store.strict_box_scan_in == 1) {
+        langObj.box_already_scanned_content =
+          langObj.box_already_scanned_content.replace(
+            "$1",
+            order.fname + " " + order.lname
+          );
         return res.status(404).send({
-          status: failed_status,
+          status: langObj.failed_status,
           found: not_found,
           statusCode: 403,
           type: "alert",
-          title: already_scanned,
-          error: already_scanned_msg + " " + order.fname,
+          title: langObj.box_already_scanned_heading,
+          error: langObj.box_already_scanned_content,
         });
       }
     }
@@ -1494,22 +1515,20 @@ exports.scanOrderBox = async (req, res) => {
       order_id: orderId,
     });
     responseObj.case_desc = "Box scanned in";
-    responseObj.message = box_scan_msg_success;
+    responseObj.message = langObj.box_scanned_content;
     responseObj.boxscanned = total_box_scan.boxes_scanned_in;
     //console.log(total_box_scan.boxes_scanned_in);
     res.status(200).send({
-      status: success_status,
+      status: langObj.success_status,
       statusCode: 200,
       type: "grid",
-      title: box_scan_success,
+      title: langObj.box_scanned_heading,
       message: responseObj,
       data: order,
     });
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 500, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 500, error: err });
   }
 };
 
@@ -1583,14 +1602,8 @@ exports.scanOrderBox = async (req, res) => {
  */
 
 exports.manullyConfirmOrder = async (req, res) => {
-  let success_status,
-    failed_status,
-    invaild_orderId,
-    not_allowed,
-    invaild_status,
-    choose_reason,
-    order_assigned_success,
-    statusMatch;
+  let statusMatch;
+  let failedStatus;
   let reason = req.body.reason;
   let userId = req.user.userId;
   let flag = req.body.flag ?? false;
@@ -1604,35 +1617,9 @@ exports.manullyConfirmOrder = async (req, res) => {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    order_assigned_success =
-      user.Language == 1
-        ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
-        : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
-    invaild_orderId =
-      user.Language == 1
-        ? process.env.ERROR_MSG_ENGLISH
-        : process.env.ERROR_MSG_SPANISH;
-    invaild_status =
-      user.Language == 1
-        ? process.env.INVAILD_STATUS_ENGLISH
-        : process.env.INVAILD_STATUS_SPANISH;
-    not_allowed =
-      user.Language == 1
-        ? process.env.NOT_ALLOWED_SWIPE_CONFIRM_ENGLISH
-        : process.env.NOT_ALLOWED_SWIPE_CONFIRM_SPANISH;
-    choose_reason =
-      user.Language == 1
-        ? process.env.CHOOSE_REASON_ENGLISH
-        : process.env.CHOOSE_REASON_SPANISH;
-
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     //fetching order
     let updated_order = await Orders.findOne({
       order_id: req.body.orderId,
@@ -1641,9 +1628,9 @@ exports.manullyConfirmOrder = async (req, res) => {
     //checking if null
     if (updated_order == null) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
-        error: invaild_orderId,
+        error: langObj.invalid_order_id,
       });
     }
     //getting reason arr
@@ -1656,9 +1643,9 @@ exports.manullyConfirmOrder = async (req, res) => {
     //when flag is true & user did not send any reason then ask user to choose a reason
     if (flag && !reason) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
-        error: choose_reason,
+        error: langObj.choose_reason,
         data: reasonArray,
       });
     }
@@ -1667,9 +1654,9 @@ exports.manullyConfirmOrder = async (req, res) => {
     //if disallow_swipe_order_confirm is 1
     if (user.disallow_swipe_order_confirm == 1) {
       return res.status(401).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 401,
-        error: not_allowed,
+        error: langObj.swipe_confirm_not_allowed,
       });
       //if is_scanning or is_segueing not eq to 1 then confirm with reason
     } else if (user.is_scanning != 1 || user.is_segueing != 1) {
@@ -1681,28 +1668,28 @@ exports.manullyConfirmOrder = async (req, res) => {
             "Box manually confirmed by non scanning user.";
           updated_order.boxes[i].status.driver_id = req.user.userId;
         }
-        updated_order.boxes_scanned_in = updated_order.boxes.length
+        updated_order.boxes_scanned_in = updated_order.boxes.length;
         updated_order.save();
         res.status(200).send({
-          status: success_status,
+          status: langObj.success_status,
           statusCode: 200,
-          message: order_assigned_success,
+          message: langObj.swipe_confirm_success,
           data: updated_order.boxes,
         });
       } else {
         return res.status(404).send({
-          status: failed_status,
+          status: langObj.failed_status,
           statusCode: 404,
-          error: invaild_status,
+          error: langObj.swipe_confirm_failed,
         });
       }
     } else {
       //if both condition not match then we will ask user to choose resaon from reason array
       if (!flag) {
         return res.status(200).send({
-          status: success_status,
+          status: langObj.success_status,
           statusCode: 200,
-          message: choose_reason,
+          message: langObj.choose_reason,
           data: reasonArray,
         });
       } else {
@@ -1720,28 +1707,26 @@ exports.manullyConfirmOrder = async (req, res) => {
 
             updated_order.boxes[i].status.driver_id = req.user.userId;
           }
-        updated_order.boxes_scanned_in = updated_order.boxes.length
+          updated_order.boxes_scanned_in = updated_order.boxes.length;
           updated_order.save();
           res.status(200).send({
-            status: success_status,
+            status: langObj.success_status,
             statusCode: 200,
-            message: order_assigned_success,
+            message: langObj.swipe_confirm_success,
             data: updated_order.boxes,
           });
         } else {
           return res.status(404).send({
-            status: failed_status,
+            status: langObj.failedStatus,
             statusCode: 404,
-            error: invaild_status,
+            error: langObj.swipe_confirm_failed,
           });
         }
       }
     }
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 /**
@@ -1807,29 +1792,15 @@ exports.manullyConfirmOrder = async (req, res) => {
  */
 
 exports.resetOrder = async (req, res) => {
-  let success_status, failed_status, order_reset_success, invaild_orderId;
+  let failedStatus, order_reset_success;
   let userId = req.user.userId;
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    order_reset_success =
-      user.Language == 1
-        ? process.env.ORDER_RESET_SUCCESS_ENGLISH
-        : process.env.ORDER_RESET_SUCCESS_SPANISH;
-    invaild_orderId =
-      user.Language == 1
-        ? process.env.ERROR_MSG_ENGLISH
-        : process.env.ERROR_MSG_SPANISH;
-
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status;
     const orderId = req.body.orderId;
     const storeId = req.body.storeId;
     //looping to update each box with driver id
@@ -1839,9 +1810,9 @@ exports.resetOrder = async (req, res) => {
     });
     if (updated_order == null) {
       return res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
-        error: invaild_orderId,
+        error: langObj.invalid_order_id,
       });
     }
     let order_boxes = updated_order.boxes;
@@ -1857,22 +1828,20 @@ exports.resetOrder = async (req, res) => {
       updated_order.boxes_scanned_in = 0;
       updated_order.save();
       res.status(200).send({
-        status: success_status,
+        status: langObj.success_status,
         statusCode: 200,
-        message: order_reset_success,
+        message: langObj.reset_order_status,
         data: updated_order.boxes,
       });
     } else {
       res.status(404).send({
-        status: failed_status,
+        status: langObj.failed_status,
         statusCode: 404,
         error: "empty boxes array",
       });
     }
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -1919,7 +1888,7 @@ async function check_oldest(
   //checking if check_for_old_orders_first is allowed by store or not
 
   if (current_order != undefined && check_for_old_orders_first == 1) {
-    console.log("check_for_old_orders_first");
+    console.log(check_for_old_orders_first);
     //getting user orders and unassigned orders
     let userOrders = await Orders.find(query_for_user_orders);
 
@@ -1942,16 +1911,17 @@ async function check_oldest(
     //checking if allOrders array have any data or not
     if (allOrders.length != 0) {
       let oldest_order = allOrders[allOrders.length - 1];
+
       // console.log(oldest_order);
       //fetching oldest_ordertime of allOrders array and converting it into date
-      oldest_ordertime = new Date(oldest_order.createdAt);
+      let oldest_ordertime = new Date(oldest_order.createdAt);
 
       //fetching this_ordertime and converting it into date
       this_ordertime = new Date(current_order.createdAt);
 
       //fetching old_order_time from store and adding it with current date
       considered_old = new Date(new Date().setSeconds(old_order_time));
-
+console.log(considered_old);
       //getting intervals
       interval1 =
         (this_ordertime.getTime() - oldest_ordertime.getTime()) / 1000 / 60;
