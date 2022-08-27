@@ -676,13 +676,11 @@ exports.deleteOrder = async (req, res) => {
         store_id: req.body.storeId,
       });
       if (order == null) {
-        return res
-          .status(404)
-          .send({
-            status: langObj.failed_status,
-            statusCode: 404,
-            error: langObj.invalid_order_id,
-          });
+        return res.status(404).send({
+          status: langObj.failed_status,
+          statusCode: 404,
+          error: langObj.invalid_order_id,
+        });
       }
       langObj.delete_order_confirmation_heading =
         langObj.delete_order_confirmation_heading.replace(
@@ -834,29 +832,9 @@ exports.confirmBarCode = async (req, res) => {
 
 exports.scanOrderBox = async (req, res) => {
   let failedStatus;
-  let success_status,
-    box_scan_msg_success,
-    failed_status,
-    box_scan_success,
-    invalid_barcode_len,
-    invalid_barcode,
-    admin_msg,
-    uncomplete_barcode,
-    already_scanned_msg,
-    invalid_storeid,
-    invalid_boxno,
-    warning,
-    another_driver_order_msg,
-    duplicate_scan,
-    order_is_young_msg,
-    order_is_old_msg,
-    wrong_boxno,
-    wrong_barcode,
-    found_old_order_msg,
-    another_driver_order,
-    found,
-    not_found,
-    statusMatch = false;
+
+  let statusMatch = false;
+  let password = req.body.password ?? false;
   let userId = req.user.userId,
     flag = false;
   let store, storeId, orderId, boxNumber;
@@ -885,110 +863,6 @@ exports.scanOrderBox = async (req, res) => {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-    order_assigned_success =
-      user.Language == 1
-        ? process.env.ORDER_ASSIGNED_SUCCESS_ENGLISH
-        : process.env.ORDER_ASSIGNED_SUCCESS_SPANISH;
-    invaild_orderId =
-      user.Language == 1
-        ? process.env.ERROR_MSG_ENGLISH
-        : process.env.ERROR_MSG_SPANISH;
-    invalid_barcode_len =
-      user.Language == 1
-        ? process.env.INVALID_BARCODE_LEN_ENGLISH
-        : process.env.INVALID_BARCODE_LEN_SPANISH;
-    invalid_barcode =
-      user.Language == 1
-        ? process.env.INVALID_BARCODE_ENGLISH
-        : process.env.INVALID_BARCODE_SPANISH;
-    uncomplete_barcode =
-      user.Language == 1
-        ? process.env.UNCOMPLETE_BARCODE_ENGLISH
-        : process.env.UNCOMPLETE_BARCODE_SPANISH;
-    invalid_storeid =
-      user.Language == 1
-        ? process.env.INVAILD_STOREID_ENGLISH
-        : process.env.INVAILD_STOREID_SPANISH;
-    invalid_boxno =
-      user.Language == 1
-        ? process.env.INVALID_BOXNO_ENGLISH
-        : process.env.INVALID_BOXNO_SPANISH;
-    duplicate_scan =
-      user.Language == 1
-        ? process.env.DUPLICATE_SCAN_ENGLISH
-        : process.env.DUPLICATE_SCAN_SPANISH;
-    another_driver_order =
-      user.Language == 1
-        ? process.env.ANOTHER_DRIVER_ORDER_ENGLISH
-        : process.env.ANOTHER_DRIVER_ORDER_SPANISH;
-    another_driver_order_msg =
-      user.Language == 1
-        ? process.env.ANOTHER_DRIVER_ORDER_MSG_ENGLISH
-        : process.env.ANOTHER_DRIVER_ORDER_MSG_SPANISH;
-
-    wrong_boxno =
-      user.Language == 1
-        ? process.env.WRONG_BOXNO_ENGLISH
-        : process.env.WRONG_BOXNO_SPANISH;
-    found_old_order_msg =
-      user.Language == 1
-        ? process.env.FOUND_OLDEST_ORDER_ENGLISH
-        : process.env.FOUND_OLDEST_ORDER_SPANISH;
-    order_is_old_msg =
-      user.Language == 1
-        ? process.env.FORDER_IS_OLD_ENGLISH
-        : process.env.ORDER_IS_OLD_SPANISH;
-    order_is_young_msg =
-      user.Language == 1
-        ? process.env.ORDER_IS_YOUNG_ENGLISH
-        : process.env.ORDER_IS_YOUNG_SPANISH;
-    box_scan_success =
-      user.Language == 1
-        ? process.env.BOX_SCAN_SUCCESS_ENGLISH
-        : process.env.BOX_SCAN_SUCCESS_SPANISH;
-    box_scan_msg_success =
-      user.Language == 1
-        ? process.env.BOX_SCAN_SUCCESS_MSG_ENGLISH
-        : process.env.BOX_SCAN_SUCCESS_MSG_SPANISH;
-
-    already_scanned =
-      user.Language == 1
-        ? process.env.ALREADY_SCANNED_ENGLISH
-        : process.env.ALREADY_SCANNED_SPANISH;
-    already_scanned_msg =
-      user.Language == 1
-        ? process.env.ALREADY_SCANNED_MSG_ENGLISH
-        : process.env.ALREADY_SCANNED_MSG_SPANISH;
-
-    wrong_barcode =
-      user.Language == 1
-        ? process.env.ERR_BARCODE_ENGLISH
-        : process.env.ERR_BARCODE_SPANISH;
-    warning =
-      user.Language == 1
-        ? process.env.WARNING_ENGLISH
-        : process.env.WARNING_SPANISH;
-    admin_msg =
-      user.Language == 1
-        ? process.env.ADMIN_MSG_ENGLISH
-        : process.env.ADMIN_MSG_SPANISH;
-
-    found =
-      user.Language == 1
-        ? process.env.FOUND_ENGLISH
-        : process.env.FOUND_SPANISH;
-    not_found =
-      user.Language == 1
-        ? process.env.NOT_FOUND_ENGLISH
-        : process.env.NOT_FOUND_SPANISH;
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status;
@@ -1143,7 +1017,7 @@ exports.scanOrderBox = async (req, res) => {
     //     components.push("-01");
     //     break;
     // }
-    console.log(components);
+
     if (rawData.length < store.barcode_minimum) {
       return res.status(404).send({
         status: langObj.failed_status,
@@ -1158,7 +1032,6 @@ exports.scanOrderBox = async (req, res) => {
         statusCode: 404,
         type: "grid",
         title: langObj.invalid_barcode_heading,
-
         error: langObj.invalid_barcode,
       });
     } else {
@@ -1222,7 +1095,6 @@ exports.scanOrderBox = async (req, res) => {
         error: langObj.invalid_barcode_heading,
       });
     } else if (order.boxes[boxNumber - 1] == undefined) {
-      console.log("jhvkgvguvhjjh");
       return res.status(404).send({
         status: langObj.failed_status,
         statusCode: 404,
@@ -1318,39 +1190,25 @@ exports.scanOrderBox = async (req, res) => {
           store_id: storeId,
           order_id: orderId,
         });
-        langObj.another_driver_order_content = langObj.another_driver_order_content.replace(
-          "$2",order.driver_string
-        )
+        langObj.another_driver_order_content =
+          langObj.another_driver_order_content.replace(
+            "$2",
+            order.driver_string
+          );
         responseObj.message = langObj.another_driver_order_content.replace(
           "$1",
-          order.fname+" "+order.lname
+          order.fname + " " + order.lname
         );
         responseObj.boxscanned = total_box_scan.boxes_scanned_in;
 
         return res.status(400).send({
-          status: failed_status,
+          status: langObj.failed_status,
           statusCode: 401,
           type: "alert",
           title: langObj.another_driver_order_heading,
           error: responseObj,
         });
       }
-
-      order.boxes[boxNumber - 1].status.type = "SCANNED_IN";
-      order.boxes[boxNumber - 1].status.description = "Box scanned in";
-      order.boxes[boxNumber - 1].status.driver_id = req.user.userId;
-      if (order.boxes_scanned_in) {
-        order.boxes_scanned_in = order.boxes_scanned_in + 1;
-      } else {
-        order.boxes_scanned_in = 1;
-      }
-      //this will happen if user try to scan unassigned orders or with loading orders in app
-      if (order.status == undefined) {
-        order.status = 0;
-      }
-      order.save();
-
-      //after saving order in db check if order belongs to someone else & is first time scanning the order
       if (!flag) {
         //if scanning first time order but order belongs to logged in user or anonymous
         let yesterdayDate = moment()
@@ -1447,19 +1305,58 @@ exports.scanOrderBox = async (req, res) => {
           query_for_user_orders,
           query_for_unassigned_orders
         );
-        if (found_old_order) {
+
+        if (found_old_order && !password) {
+          langObj.oldest_order_found_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$1",
+              found_old_order.seq
+            );
+          langObj.oldest_order_found_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$2",
+              found_old_order.fname + " " + found_old_order.lname
+            );
+          langObj.oldest_order_found_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$3",
+              found_old_order.street_address
+            );
+
           return res.status(302).send({
-            status: success_status,
+            status: langObj.success_status,
             statusCode: 302,
             type: "alert",
-            title:
-              found_old_order_msg +
-              " " +
-              found_old_order.fname +
-              " " +
-              found_old_order.lname,
-            message: admin_msg,
+            title: langObj.oldest_order_found_heading,
+            message: langObj.oldest_order_found_content,
           });
+        } else if (found_old_order && password != store.admin_pass) {
+          langObj.oldest_order_found_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$1",
+              found_old_order.seq
+            );
+          langObj.oldest_order_found_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$2",
+              found_old_order.fname + " " + found_old_order.lname
+            );
+          langObj.oldest_order_found_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$3",
+              found_old_order.street_address
+            );
+
+          return res.status(302).send({
+            status: langObj.success_status,
+            statusCode: 302,
+            type: "alert",
+            title: langObj.oldest_order_found_heading,
+            message: langObj.oldest_order_found_content,
+          });
+        } else if (found_old_order && password == store.admin_pass) {
+          found_old_order.hidden = 1;
+          found_old_order.save();
         }
 
         let order_is_old = check_if_order_is_old(
@@ -1467,13 +1364,30 @@ exports.scanOrderBox = async (req, res) => {
           order,
           store.old_order_time
         );
-        if (order_is_old) {
+        if (order_is_old && !password) {
+          langObj.order_is_old_heading = langObj.order_is_old_heading.replace(
+            "$1",
+            parseInt(store.old_order_time / 3600)
+          );
           return res.status(200).send({
-            status: failed_status,
+            status: langObj.failed_status,
             statusCode: 303,
             type: "alert",
-            title: order_is_old_msg + parseInt(old_order_time / 3600),
-            error: admin_msg,
+            title: langObj.order_is_old_heading,
+            error: langObj.oldest_order_found_content,
+          });
+        } else if (order_is_old && password != store.admin_pass) {
+          langObj.order_is_old_heading =
+            langObj.oldest_order_found_heading.replace(
+              "$1",
+              parseInt(store.old_order_time / 3600)
+            );
+          return res.status(200).send({
+            status: langObj.failed_status,
+            statusCode: 303,
+            type: "alert",
+            title: langObj.order_is_old_heading,
+            error: langObj.oldest_order_found_content,
           });
         }
 
@@ -1482,13 +1396,21 @@ exports.scanOrderBox = async (req, res) => {
           store.young_order_time,
           order
         );
-        if (order_is_young) {
+        if (order_is_young && !password) {
           return res.status(200).send({
-            status: failed_status,
+            status: langObj.failed_status,
             statusCode: 303,
             type: "alert",
-            title: order_is_young_msg,
-            error: admin_msg,
+            title: langObj.order_is_young_heading,
+            error: langObj.oldest_order_found_content,
+          });
+        } else if (order_is_young && password != store.admin_pass) {
+          return res.status(200).send({
+            status: langObj.failed_status,
+            statusCode: 303,
+            type: "alert",
+            title: langObj.order_is_young_heading,
+            error: langObj.oldest_order_found_content,
           });
         }
       }
@@ -1502,7 +1424,6 @@ exports.scanOrderBox = async (req, res) => {
           );
         return res.status(404).send({
           status: langObj.failed_status,
-          found: not_found,
           statusCode: 403,
           type: "alert",
           title: langObj.box_already_scanned_heading,
@@ -1510,6 +1431,20 @@ exports.scanOrderBox = async (req, res) => {
         });
       }
     }
+    //finally save order as scanned in
+    order.boxes[boxNumber - 1].status.type = "SCANNED_IN";
+    order.boxes[boxNumber - 1].status.description = "Box scanned in";
+    order.boxes[boxNumber - 1].status.driver_id = req.user.userId;
+    if (order.boxes_scanned_in) {
+      order.boxes_scanned_in = order.boxes_scanned_in + 1;
+    } else {
+      order.boxes_scanned_in = 1;
+    }
+    //this will happen if user try to scan unassigned orders or with loading orders in app
+    if (order.status == undefined) {
+      order.status = 0;
+    }
+    order.save();
     let total_box_scan = await Orders.findOne({
       store_id: storeId,
       order_id: orderId,
@@ -1527,7 +1462,6 @@ exports.scanOrderBox = async (req, res) => {
       data: order,
     });
   } catch (err) {
-    console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 500, error: err });
   }
 };
@@ -1888,7 +1822,7 @@ async function check_oldest(
   //checking if check_for_old_orders_first is allowed by store or not
 
   if (current_order != undefined && check_for_old_orders_first == 1) {
-    console.log(check_for_old_orders_first);
+    //console.log(check_for_old_orders_first);
     //getting user orders and unassigned orders
     let userOrders = await Orders.find(query_for_user_orders);
 
@@ -1898,7 +1832,7 @@ async function check_oldest(
 
     //filter all orders according to createdAt date with today date
     allOrders = allOrders.filter((order) => {
-      return order.createdAt > yesterday_date;
+      return new Date(order.createdAt) > new Date(yesterday_date);
     });
 
     allOrders = allOrders.filter((order) => {
@@ -1906,7 +1840,7 @@ async function check_oldest(
     });
     //sorting all orders according to createdAt date
     allOrders.sort(function (order1, order2) {
-      return new Date(order1.createdAt) - new Date(order2.createdAt);
+      return new Date(order2.createdAt) - new Date(order1.createdAt);
     });
     //checking if allOrders array have any data or not
     if (allOrders.length != 0) {
@@ -1921,7 +1855,7 @@ async function check_oldest(
 
       //fetching old_order_time from store and adding it with current date
       considered_old = new Date(new Date().setSeconds(old_order_time));
-console.log(considered_old);
+
       //getting intervals
       interval1 =
         (this_ordertime.getTime() - oldest_ordertime.getTime()) / 1000 / 60;
@@ -1935,7 +1869,6 @@ console.log(considered_old);
         boxes_of_old_order.forEach((box) => {
           if (box.status.type == ("SCANNED_IN" || "MANUALLY_CONFIRMED")) {
             test_order = false;
-            console.log("test_order = false");
           }
         });
       }
@@ -1963,8 +1896,10 @@ function check_if_order_is_old(
   if (check_if_order_is_too_old == 1) {
     let this_ordertime = new Date(current_order.createdAt);
     let considered_old = old_order_time;
+
     interval2 =
       (new Date(new Date()).getTime() - this_ordertime.getTime()) / 1000;
+    console.log(interval2);
     if (interval2 > considered_old) {
       return true;
     } else {
@@ -1982,7 +1917,6 @@ function check_if_order_is_young(
   if (check_if_order_is_too_young == 1) {
     let considered_young = parseInt(young_order_time) * 60;
     let this_ordertime = new Date(current_order.createdAt ?? new Date());
-
     //fetching old_order_time from store and subtract it with considered_young which is multi of young_order_time
     let allowed_created_young = new Date(
       this_ordertime.setSeconds(-considered_young)
@@ -1993,7 +1927,6 @@ function check_if_order_is_young(
     let allowed_hidden_young = new Date(
       this_order_hidden.setSeconds(-considered_young)
     );
-
     if (
       new Date() < allowed_hidden_young ||
       new Date() < allowed_created_young

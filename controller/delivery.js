@@ -314,6 +314,7 @@ exports.startDelivery = async (req, res) => {
       allOrders.map((order) => (order.sequence = order.order_id));
       allOrders = lodash.orderBy(allOrders, ["sequence"], ["asc"]);
     }
+    user.
     res.status(200).send({
       status: langObj.success_status,
       statusCode: 200,

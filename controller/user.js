@@ -215,6 +215,7 @@ exports.getUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   let userId = req.user.userId;
+  let failedStatus;
   let success_status, failed_status, update_user_failed;
   try {
     // fetching user using user id
@@ -232,6 +233,9 @@ exports.updateUser = async (req, res) => {
       user.Language == 1
         ? process.env.UPDATE_USER_FAILED_ENGLISH
         : process.env.UPDATE_USER_FAILED_SPANISH;
+        const lan = await Language.findOne({ language_id: 1 });
+        const langObj = JSON.parse(lan.language_translation);
+       failedStatus = langObj.failed_status
     //updating user
     const update_User = await User.updateOne(
       { _id: userId },
@@ -244,10 +248,10 @@ exports.updateUser = async (req, res) => {
     if (update_User.acknowledged == true) {
       res
         .status(200)
-        .send({ status: success_status, statusCode: 200, data: update_User });
+        .send({ status: langObj.success_status, statusCode: 200, data: update_User });
     } else {
       res.status(400).send({
-        status: failed_status,
+        status: failedStatus,
         statusCode: 400,
         error: update_user_failed,
       });
@@ -255,7 +259,7 @@ exports.updateUser = async (req, res) => {
   } catch (err) {
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
