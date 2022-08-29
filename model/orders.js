@@ -21,7 +21,7 @@ const ordersSchema = new Schema({
             type:String
         },
         is_case: {
-            type:Number
+            type:Boolean
         },
         number:{
             type:Number

@@ -72,7 +72,7 @@ exports.startDelivery = async (req, res) => {
   let password = req.body.password;
   let allow_manully_confirm = req.body.manullyConfirm ?? false;
   let admin_override = req.body.adminOverride ?? false;
-  let similar_address = req.body.similarAddress ?? false
+  let similar_address = req.body.similarAddress ?? false;
   let responseObj;
   let missingBoxes = "";
   let notConfirmedBoxes = false;
@@ -96,7 +96,7 @@ exports.startDelivery = async (req, res) => {
     user.is_segueing = user.is_segueing ?? 0;
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status;
+    failedStatus = langObj.failed_status_text;
     //if load_in_late_orders_too is undefined then set zero
 
     user.load_in_late_orders_too = user.load_in_late_orders_too ?? 0;
@@ -105,7 +105,7 @@ exports.startDelivery = async (req, res) => {
 
     if (orderIds.length == 0) {
       return res.status(404).send({
-        status: langObj.success_status,
+        status: langObj.success_status_text,
         statusCode: 404,
         error: "orderIds array is empty",
       });
@@ -185,15 +185,15 @@ exports.startDelivery = async (req, res) => {
       });
     });
     allOrders = [...allOrders, ...uniqueResult];
-    langObj.additional_orders_heading.replace("$1", uniqueResult.length);
+    langObj.additional_orders_heading_text.replace("$number", uniqueResult.length);
     //if new orders are available then send all order and msg
     if (uniqueResult.length !== 0) {
       return res.status(200).send({
-        status: langObj.success_status,
+        status: langObj.success_status_text,
         statusCode: 200,
         responseObj: {
-          heading: langObj.additional_orders_heading,
-          content: langObj.additional_orders_content,
+          heading: langObj.additional_orders_heading_text,
+          content: langObj.additional_orders_content_text,
         },
         data: allOrders,
       });
@@ -220,13 +220,13 @@ exports.startDelivery = async (req, res) => {
       !admin_override
     ) {
       responseObj = {
-        status: langObj.failed_status,
+        status: langObj.failed_status_text,
         statusCode: 400,
-        heading: langObj.box_not_scanned_heading + missingBoxes,
+        heading: langObj.box_not_scanned_heading + missingBoxes_text,
         missingBoxes: missingBoxes,
-        content: langObj.box_not_scanned_content,
-        Option1: langObj.box_not_scanned_option_1,
-        option3: langObj.box_not_scanned_option_3,
+        content: langObj.box_not_scanned_content_text,
+        Option1: langObj.box_not_scanned_option_1_text,
+        option3: langObj.box_not_scanned_option_3_text,
       };
       if (user.Language == 1) {
         responseObj.subHeading2 = "Manager override";
@@ -254,7 +254,7 @@ exports.startDelivery = async (req, res) => {
     }
     if (admin_override && user.Language == 1 && !password) {
       return res.status(200).send({
-        status: langObj.success_status,
+        status: langObj.success_status_text,
         statusCode: 200,
         message: {
           heading:
@@ -274,7 +274,7 @@ exports.startDelivery = async (req, res) => {
         allOrders = adminResponse;
       } else {
         return res.status(404).send({
-          status: langObj.success_status,
+          status: langObj.success_status_text,
           statusCode: 404,
           error: {
             title: "WRONG PASSWORD!!",
@@ -285,7 +285,10 @@ exports.startDelivery = async (req, res) => {
         });
       }
     }
-    if (store.check_similar_street == 1 || store.check_similar_address == 1 && !similar_address) {
+    if (
+      store.check_similar_street == 1 ||
+      (store.check_similar_address == 1 && !similar_address)
+    ) {
       let result = await check_similar_address(
         allOrders,
         store.check_similar_address,
@@ -297,7 +300,7 @@ exports.startDelivery = async (req, res) => {
       //if we found any similar address then slow alert
       if (result) {
         return res.status(200).send({
-          status: langObj.success_status,
+          status: langObj.success_status_text,
           statusCode: 200,
           type: "alert",
           message: result,
@@ -314,9 +317,8 @@ exports.startDelivery = async (req, res) => {
       allOrders.map((order) => (order.sequence = order.order_id));
       allOrders = lodash.orderBy(allOrders, ["sequence"], ["asc"]);
     }
-    user.
-    res.status(200).send({
-      status: langObj.success_status,
+    user.res.status(200).send({
+      status: langObj.success_status_text,
       statusCode: 200,
       NO_GPS: user.no_gps,
       data: {
@@ -340,7 +342,7 @@ exports.updateOrders = async (req, res) => {
     user.is_segueing = user.is_segueing ?? 0;
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status;
+    failedStatus = langObj.failed_status_text;
     const orderNo = await Orders.find({
       order_id: { $in: orderIds },
       visited: { $ne: 1 },
@@ -374,7 +376,11 @@ exports.updateOrders = async (req, res) => {
     });
     res
       .status(200)
-      .send({ status: langObj.success_status, statusCode: 200, data: orders });
+      .send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        data: orders,
+      });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -388,7 +394,7 @@ exports.driverSteps = async (req, res) => {
     const user = await User.findOne({ _id: userId });
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status;
+    failedStatus = langObj.failed_status_text;
     const driverSteps = new DriverSteps({
       step_date: new Date(),
       route_started: req.body.original_route_started ?? "",
@@ -401,7 +407,7 @@ exports.driverSteps = async (req, res) => {
     });
     driverSteps.save();
     res.status(201).send({
-      staus: langObj.success_status,
+      staus: langObj.success_status_text,
       statusCode: 201,
       message: "driver step has been recorded",
     });
@@ -424,17 +430,9 @@ exports.updateUser = async (req, res) => {
   try {
     const order = await findOne({ order_id: orderId });
     const user = await User.findOne({ _id: userId });
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
-        const language = await Language.findOne({ language_id: user.Language });
-        const langObj = JSON.parse(language.language_translation);
-        failedStatus = langObj.failed_status;
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
     user.last_location = [longitude, latitude];
     user.is_delivering = isDelivering;
     user.total_addresses_in_run = total_addresses_in_run;
@@ -454,7 +452,7 @@ exports.updateUser = async (req, res) => {
     }
     user.save();
     res.status(200).send({
-      status: langObj.success_status,
+      status: langObj.success_status_text,
       statusCode: 200,
       message: "user updated successfully",
     });

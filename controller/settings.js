@@ -59,7 +59,7 @@ const Language = require("../model/language");
 
 exports.updateLanguage = async (req, res) => {
   let userId = req.user.userId;
-  let failedStatus, update_user_failed;
+  let failedStatus;
   try {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
@@ -74,12 +74,12 @@ exports.updateLanguage = async (req, res) => {
 
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status;
+    failedStatus = langObj.failed_status_text;
     if (update_User.acknowledged == true) {
       res
         .status(200)
         .send({
-          status: langObj.success_status,
+          status: langObj.success_status_text,
           statusCode: 200,
           data: req.body.language,
         });
@@ -87,7 +87,7 @@ exports.updateLanguage = async (req, res) => {
       res.status(400).send({
         status: failedStatus,
         statusCode: 400,
-        error: langObj.update_user_failed,
+        error: langObj.update_user_failed_text,
       });
     }
   } catch (err) {

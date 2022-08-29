@@ -10,6 +10,7 @@ const HereInf = require("../model/hereinf");
 const Reason = require("../model/reason");
 const Logged_routing_request = require("../model/loggedroutingrequests");
 const Language = require("../model/language");
+const moment = require("moment");
 /**
  *   @swagger
  *   components:
@@ -197,12 +198,12 @@ exports.getUser = async (req, res) => {
   try {
     const lan = await Language.findOne({ language_id: 1 });
     const langObj = JSON.parse(lan.language_translation);
-   failedStatus = langObj.failed_status
+   failedStatus = langObj.failed_status_text
   
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     res.status(200).send({
-      status: langObj.success_status,
+      status: langObj.success_status_text,
       statusCode: 200,
       data: user,
     });
@@ -216,19 +217,12 @@ exports.getUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   let userId = req.user.userId;
   let failedStatus;
-  let success_status, failed_status, update_user_failed;
+  let update_user_failed;
+  let date = moment().format("MM-dd, h:mm:ss a")
   try {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    success_status =
-      user.Language == 1
-        ? process.env.SUCCESS_STATUS_ENGLISH
-        : process.env.SUCCESS_STATUS_SPANISH;
-    failed_status =
-      user.Language == 1
-        ? process.env.FAILED_STATUS_ENGLISH
-        : process.env.FAILED_STATUS_SPANISH;
     update_user_failed =
       user.Language == 1
         ? process.env.UPDATE_USER_FAILED_ENGLISH
@@ -240,9 +234,9 @@ exports.updateUser = async (req, res) => {
     const update_User = await User.updateOne(
       { _id: userId },
       {
-        previous_stop: req.body.previous_stop,
-        latest_action: req.body.latest_action,
-        next_stop: req.body.next_stop,
+        previous_stop:"Started scanning in store:"+date,
+        latest_action: "Started scanning in store:"+date,
+        next_stop: "Started scanning in store:"+date,
       }
     );
     if (update_User.acknowledged == true) {
@@ -664,22 +658,22 @@ exports.loadView = async (req, res) => {
 
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status;
+    failedStatus = langObj.failed_status_text;
     responseObj = {
-      content: langObj.home_page_sub_heading,
-      warningTitle: langObj.warning,
-      warning: langObj.home_page_warning,
+      content: langObj.home_page_sub_heading_text,
+      warningTitle: langObj.warning_text,
+      warning: langObj.home_page_warning_text,
     };
     if (user.orders_entry_method == 1) {
-      responseObj.heading = user.username + "," + langObj.home_page_heading_1;
+      responseObj.heading = user.username + "," + langObj.home_page_heading_1_text;
     } else if (user.orders_entry_method == 3) {
-      responseObj.heading = user.username + "," + langObj.home_page_heading_3;
+      responseObj.heading = user.username + "," + langObj.home_page_heading_3_text;
     } else {
-      responseObj.heading = user.username + "." + langObj.home_page_heading_2;
+      responseObj.heading = user.username + "." + langObj.home_page_heading_2_text;
     }
 
     res.status(200).send({
-      status: langObj.success_status,
+      status: langObj.success_status_text,
       statusCode: 200,
       orderEntryMethod: user.orders_entry_method,
       message: responseObj,
@@ -938,13 +932,12 @@ exports.logout = async (req, res) => {
 
   let userId = req.user.userId;
   try {
-    let userLogout;
     // fetching user using user id
     const user = await User.findOne({ _id: req.user.userId });
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status;
+    failedStatus = langObj.failed_status_text;
     //fetching token
     const auth = req.headers["authorization"];
     const token = auth && auth.split(" ")[1];
@@ -957,9 +950,9 @@ exports.logout = async (req, res) => {
     res
       .status(200)
       .send({
-        status: langObj.success_status,
+        status: langObj.success_status_text,
         statusCode: 200,
-        data: langObj.user_logout_success,
+        data: langObj.user_logout_success_text,
       });
   } catch (err) {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });

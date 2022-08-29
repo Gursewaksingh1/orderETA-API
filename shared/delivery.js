@@ -53,15 +53,15 @@ const check_similar_address = async (
   //if sirmialr address matches with any order address of simialrOrders then send response
   for(order of similarOrders) {
     if (addressArray.includes(order.street_address)) {
-      langObj.similar_order_found_content =  langObj.similar_order_found_content.replace("$1",order.fname," "+order.lname)
-      langObj.similar_order_found_content =  langObj.similar_order_found_content.replace("$2",order.street_address)
-      langObj.similar_order_found_content =  langObj.similar_order_found_content.replace("$3",order.boxes.length)
+      langObj.similar_order_found_content_text =  langObj.similar_order_found_content_text.replace("$orderName",order.fname," "+order.lname)
+      langObj.similar_order_found_content_text =  langObj.similar_order_found_content_text.replace("$streetAddress",order.street_address)
+      langObj.similar_order_found_content_text =  langObj.similar_order_found_content_text.replace("$totalBoxes",order.boxes.length)
      
       addressDetails = {
-      heading: langObj.similar_order_found_heading,
+      heading: langObj.similar_order_found_heading_text,
       content: content_similar_order,
-      option1: langObj.similar_order_found_option_1,
-      option2: langObj.similar_order_found_option_2,
+      option1: langObj.similar_order_found_option_1_text,
+      option2: langObj.similar_order_found_option_2_text,
     };
     break
   }
