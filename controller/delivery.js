@@ -132,7 +132,7 @@ exports.startDelivery = async (req, res) => {
     store.confirm_orders_no_swipe = store.confirm_orders_no_swipe ?? 0;
     store.check_similar_address = store.check_similar_address ?? 0;
     store.check_similar_street = store.check_similar_street ?? 0;
-    store.admin_pass = store.admin_pass ?? "";
+    store.admin_pass = store.admin_pass ?? 0;
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
     if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
@@ -185,7 +185,7 @@ exports.startDelivery = async (req, res) => {
       });
     });
     allOrders = [...allOrders, ...uniqueResult];
-    langObj.additional_orders_heading_text.replace("$number", uniqueResult.length);
+    langObj.additional_orders_heading_text = langObj.additional_orders_heading_text.replace("$number", uniqueResult.length);
     //if new orders are available then send all order and msg
     if (uniqueResult.length !== 0) {
       return res.status(200).send({
@@ -222,7 +222,7 @@ exports.startDelivery = async (req, res) => {
       responseObj = {
         status: langObj.failed_status_text,
         statusCode: 400,
-        heading: langObj.box_not_scanned_heading + missingBoxes_text,
+        heading: langObj.box_not_scanned_heading_text + missingBoxes,
         missingBoxes: missingBoxes,
         content: langObj.box_not_scanned_content_text,
         Option1: langObj.box_not_scanned_option_1_text,
@@ -317,7 +317,7 @@ exports.startDelivery = async (req, res) => {
       allOrders.map((order) => (order.sequence = order.order_id));
       allOrders = lodash.orderBy(allOrders, ["sequence"], ["asc"]);
     }
-    user.res.status(200).send({
+    res.status(200).send({
       status: langObj.success_status_text,
       statusCode: 200,
       NO_GPS: user.no_gps,

@@ -34,6 +34,7 @@ const check_similar_address = async (
       addressArray.push(order.street_address);
     }
   });
+  console.log(addressArray);
   //extracting object ids of all orders
   let objectIds = orders.map((order) => order._id);
 //fetching un assigned orders except order which user already have 
@@ -50,6 +51,7 @@ const check_similar_address = async (
       _id: { $nin: objectIds },
     })
   );
+  console.log(similarOrders);
   //if sirmialr address matches with any order address of simialrOrders then send response
   for(order of similarOrders) {
     if (addressArray.includes(order.street_address)) {
@@ -59,7 +61,7 @@ const check_similar_address = async (
      
       addressDetails = {
       heading: langObj.similar_order_found_heading_text,
-      content: content_similar_order,
+      content: langObj.content_similar_order_text,
       option1: langObj.similar_order_found_option_1_text,
       option2: langObj.similar_order_found_option_2_text,
     };
@@ -72,7 +74,7 @@ const check_similar_address = async (
 const admin_override_order = (orders,userPass,storePass,confirmedStatus,userId) => {
   console.log(userPass,storePass);
     if(userPass == storePass) {
-      console.log("pass matched");
+
       orders.forEach((order) => {
         order.boxes.forEach((box) => {
           if (!confirmedStatus.includes(box.status.type)) {

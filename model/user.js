@@ -42,7 +42,7 @@ const userSchema = new Schema({
         required: true,
         type: String,
     },
-    
+    disallow_swipe_order_confirm:Number,
     end_lat: {
         required: true,
         type: Number,

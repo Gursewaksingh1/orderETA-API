@@ -881,6 +881,7 @@ exports.scanOrderBox = async (req, res) => {
         check_if_order_is_too_old: "check_if_order_is_too_old",
         young_order_time: "young_order_time",
         check_if_order_is_too_young: "check_if_order_is_too_young",
+        admin_pass: "admin_pass"
       }
     );
     //if these fields not present in store db
@@ -889,6 +890,7 @@ exports.scanOrderBox = async (req, res) => {
     store.check_if_order_is_too_old = store.check_if_order_is_too_old ?? 0;
     store.check_for_old_orders_first = store.check_for_old_orders_first ?? 0;
     store.old_order_time = store.old_order_time ?? 0;
+    store.admin_pass = store.admin_pass ?? 0
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
@@ -1308,6 +1310,7 @@ exports.scanOrderBox = async (req, res) => {
         );
 
         if (found_old_order && !password) {
+          
           langObj.oldest_order_found_heading_text =
             langObj.oldest_order_found_heading_text.replace(
               "$SeqNumber",
@@ -1366,6 +1369,7 @@ exports.scanOrderBox = async (req, res) => {
           store.old_order_time
         );
         if (order_is_old && !password) {
+
           langObj.order_is_old_heading_text = langObj.order_is_old_heading_text.replace(
             "$number",
             parseInt(store.old_order_time / 3600)
@@ -1377,6 +1381,7 @@ exports.scanOrderBox = async (req, res) => {
             title: langObj.order_is_old_heading_text,
             error: langObj.oldest_order_found_content_text,
           });
+          
         } else if (order_is_old && password != store.admin_pass) {
           langObj.order_is_old_heading_text =
             langObj.order_is_old_heading_text.replace(
@@ -1587,6 +1592,7 @@ exports.manullyConfirmOrder = async (req, res) => {
     //checking if refused status matched or not
     statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
     //if disallow_swipe_order_confirm is 1
+    console.log(user.disallow_swipe_order_confirm );
     if (user.disallow_swipe_order_confirm == 1) {
       return res.status(401).send({
         status: langObj.failed_status_text,
@@ -1846,14 +1852,14 @@ async function check_oldest(
     //checking if allOrders array have any data or not
     if (allOrders.length != 0) {
       let oldest_order = allOrders[allOrders.length - 1];
-
+console.log(oldest_order);
       // console.log(oldest_order);
       //fetching oldest_ordertime of allOrders array and converting it into date
       let oldest_ordertime = new Date(oldest_order.createdAt);
 
       //fetching this_ordertime and converting it into date
       this_ordertime = new Date(current_order.createdAt);
-
+      console.log(this_ordertime,oldest_ordertime);
       //fetching old_order_time from store and adding it with current date
       considered_old = new Date(new Date().setSeconds(old_order_time));
 
