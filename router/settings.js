@@ -12,5 +12,5 @@ router.put(
   validate,
   settingController.updateLanguage
 );
-
+router.get("/language",isAuth,settingController.language);
 module.exports = router;

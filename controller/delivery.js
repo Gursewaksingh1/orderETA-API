@@ -299,11 +299,14 @@ exports.startDelivery = async (req, res) => {
       );
       //if we found any similar address then slow alert
       if (result) {
+        allOrders = [...allOrders,result.data]    // adding order got from similar address
+        delete result["data"]
         return res.status(200).send({
           status: langObj.success_status_text,
           statusCode: 200,
           type: "alert",
           message: result,
+          data: allOrders
         });
       }
     }

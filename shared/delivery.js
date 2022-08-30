@@ -61,9 +61,10 @@ const check_similar_address = async (
      
       addressDetails = {
       heading: langObj.similar_order_found_heading_text,
-      content: langObj.content_similar_order_text,
+      content: langObj.similar_order_found_content_text,
       option1: langObj.similar_order_found_option_1_text,
       option2: langObj.similar_order_found_option_2_text,
+      data: order
     };
     break
   }

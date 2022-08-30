@@ -744,7 +744,7 @@ exports.loadView = async (req, res) => {
 
 exports.login = async (req, res) => {
   const password = req.body.password;
-
+let langObj;
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -769,6 +769,7 @@ exports.login = async (req, res) => {
         error: "invaild username or password",
       });
     } else {
+      console.log(password);
       //comparing password using bcrypt
       bcrypt
         .compare(password.toString(), user._hashed_password)
@@ -792,15 +793,22 @@ exports.login = async (req, res) => {
               token: token,
               refreshToken,
             });
+
+             Language.findOne({ language_id: user.Language }).then(lang => {
+              langObj = JSON.parse(lang.language_translation)
+              res.status(200).send({
+                status: "success",
+                statusCode: 200,
+                username: user.username,
+                language: user.Language,
+                token,
+                refreshToken,
+                languageObj:langObj,
+              });
+            })
+
             user_logout.save();
-            res.status(200).send({
-              status: "success",
-              statusCode: 200,
-              username: user.username,
-              language: user.Language,
-              token,
-              refreshToken,
-            });
+           
           } else {
             res.status(403).send({
               status: "failed",
