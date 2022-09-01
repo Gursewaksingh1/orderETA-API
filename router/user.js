@@ -42,7 +42,7 @@ router.post(
   userController.add_user_image
 );
 router.get(
-  "/home",
+  "/chnageuser",
   isAuth,
   userController.loadView
 );

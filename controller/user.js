@@ -620,9 +620,9 @@ exports.debug_temp = async (req, res) => {
 };
 /**
  * @swagger
- * /home:
+ * /chnageuser:
  *   get:
- *     summary: this api gives all the home page messages in multi language and store users
+ *     summary: store users
  *     tags: [user]
  *     responses:
  *       200:
@@ -648,35 +648,25 @@ exports.debug_temp = async (req, res) => {
  */
 
 exports.loadView = async (req, res) => {
-  let responseObj, failedStatus;
+  let failedStatus;
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: req.user.userId });
     const storeUsers = await User.find({ store_id: user.store_id });
-    let allUsers = storeUsers.map((user) => user.username);
-    // checking for user language
 
+    let allUsers = storeUsers.map((user) =>{
+      
+      return {userName: user.username,firstName: user.first_name}
+    } )
+    // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
-    responseObj = {
-      content: langObj.home_page_sub_heading_text,
-      warningTitle: langObj.warning_text,
-      warning: langObj.home_page_warning_text,
-    };
-    if (user.orders_entry_method == 1) {
-      responseObj.heading = user.username + "," + langObj.home_page_heading_1_text;
-    } else if (user.orders_entry_method == 3) {
-      responseObj.heading = user.username + "," + langObj.home_page_heading_3_text;
-    } else {
-      responseObj.heading = user.username + "." + langObj.home_page_heading_2_text;
-    }
+  
 
     res.status(200).send({
       status: langObj.success_status_text,
       statusCode: 200,
-      orderEntryMethod: user.orders_entry_method,
-      message: responseObj,
       data: allUsers,
     });
   } catch (err) {
@@ -801,6 +791,7 @@ let langObj;
                 statusCode: 200,
                 username: user.username,
                 language: user.Language,
+                orderEntryMethod: user.orders_entry_method,
                 token,
                 refreshToken,
                 languageObj:langObj,

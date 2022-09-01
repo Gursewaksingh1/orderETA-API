@@ -131,7 +131,9 @@ exports.language = async (req, res) => {
   let failedStatus;
   try {
     const user = await User.findOne({ _id: req.user.userId });
-    const language = await Language.findOne({ language_id: user.Language });
+    let language = await Language.findOne({ language_id: user.Language });
+    let lang = await Language.find().select("language_id language_name");;
+
     lanObj = JSON.parse(language.language_translation);
     failedStatus = lanObj.failed_status_text;
     res
@@ -139,7 +141,7 @@ exports.language = async (req, res) => {
       .send({
         status: lanObj.success_status_text,
         statusCode: 200,
-        data: lanObj,
+        data: lang,
       });
   } catch (err) {
     console.log(err);
