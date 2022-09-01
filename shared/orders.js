@@ -52,9 +52,47 @@ function saveOrderDetails(order,user) {
        }
        order.save();
 }
+function removeOrdersAtCancelRoute(orders) {
+    let acceptedStatus = ["SCANNED_IN", "MANUALLY_CONFIRMED"]
+    orders.forEach(order => {
+        order.boxes.forEach(box => {
+            if(acceptedStatus.includes(box.status.type)) {
+                box.status.type = "MANUALLY_DELETED";
+                box.status.description = "Box was manually deleted from the driver's device.";
+                box.status.driver_id = userId;
+            }
+        })
+        order.save();
+    })
+}
+
+function markDeliveredAtCancelRoute(orders) {
+    let scannedAcceptedStatus = ["SCANNED_IN"]
+    let manualAcceptedStatus = ["MANUALLY_CONFIRMED"]
+    
+    orders.forEach(order => {
+        order.boxes.forEach(box => {
+            if(scannedAcceptedStatus.includes(box.status.type)) {
+                box.status.type = "MANUALLY_SCANNED_OUT";
+                box.status.description = "Box was manually deleted from the driver's device.";
+                box.status.driver_id = userId;
+
+            } else if(scannedAcceptedStatus.includes(box.status.type)) {
+                box.status.type = "MANUALLY_DELIVERED";
+                box.status.driver_id = userId;
+            }
+    }) 
+    order.visited = 1;
+    order.eta = moment(new Date()).format("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+    order.notes = order.notes+ " Driver deleted whole route and marked all orders as delivered"
+    order.save()
+})
+}
+
 module.exports = {
     confirm_orders,
     unvisitedorders,
     uniqueorders,
-    saveOrderDetails
+    saveOrderDetails,
+    removeOrdersAtCancelRoute
 }

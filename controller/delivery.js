@@ -10,7 +10,12 @@ const {
   check_similar_address,
   admin_override_order,
 } = require("../shared/delivery");
-let { uniqueorders, unvisitedorders } = require("../shared/orders");
+let {
+  uniqueorders,
+  unvisitedorders,
+  removeOrdersAtCancelRoute,
+} = require("../shared/orders");
+const orders = require("../model/orders");
 
 /**
  *   @swagger
@@ -185,7 +190,11 @@ exports.startDelivery = async (req, res) => {
       });
     });
     allOrders = [...allOrders, ...uniqueResult];
-    langObj.additional_orders_heading_text = langObj.additional_orders_heading_text.replace("$number", uniqueResult.length);
+    langObj.additional_orders_heading_text =
+      langObj.additional_orders_heading_text.replace(
+        "$number",
+        uniqueResult.length
+      );
     //if new orders are available then send all order and msg
     if (uniqueResult.length !== 0) {
       return res.status(200).send({
@@ -299,14 +308,14 @@ exports.startDelivery = async (req, res) => {
       );
       //if we found any similar address then slow alert
       if (result) {
-        allOrders = [...allOrders,result.data]    // adding order got from similar address
-        delete result["data"]
+        allOrders = [...allOrders, result.data]; // adding order got from similar address
+        delete result["data"];
         return res.status(200).send({
           status: langObj.success_status_text,
           statusCode: 200,
           type: "alert",
           message: result,
-          data: allOrders
+          data: allOrders,
         });
       }
     }
@@ -377,13 +386,11 @@ exports.updateOrders = async (req, res) => {
       }
       order.save();
     });
-    res
-      .status(200)
-      .send({
-        status: langObj.success_status_text,
-        statusCode: 200,
-        data: orders,
-      });
+    res.status(200).send({
+      status: langObj.success_status_text,
+      statusCode: 200,
+      data: orders,
+    });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -460,6 +467,161 @@ exports.updateUser = async (req, res) => {
       message: "user updated successfully",
     });
   } catch (err) {
+    res
+      .status(400)
+      .send({ status: failed_status, statusCode: 400, error: err });
+  }
+};
+
+exports.cancelRoute = async (req, res) => {
+  let responseObj = {},
+    failedStatus;
+  let step = req.body.step;
+  let firstTime = req.body.firstTime;
+  let orderIds = req.body.orderIds ?? [];
+  try {
+    //step 1
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    let store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name: "store_name",
+        admin_pass: "admin_pass",
+        sensitive_actions_require_pass: "sensitive_actions_require_pass",
+      }
+    );
+    store.sensitive_actions_require_pass =
+      store.sensitive_actions_require_pass ?? 0;
+    if (step == 1) {
+      responseObj.heading = langObj.cancel_route_before_delivery_heading_text;
+      responseObj.content = langObj.cancel_route_before_delivery_content_text;
+      responseObj.Option1 = langObj.cancel_route_before_delivery_option_1_text;
+      responseObj.Option2 = langObj.cancel_route_before_delivery_option_2_text;
+      responseObj.Option3 = langObj.cancel_route_before_delivery_option_3_text;
+      responseObj.Option4 = langObj.cancel_route_before_delivery_option_4_text;
+      if (firstTime) {
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: responseObj,
+        });
+      }
+      if (option == 1) {
+        user.next_stop = "Started scanning but canceled route";
+        user.previous_stop = "Started scanning but canceled route";
+        user.total_addresses_in_run = 0;
+        user.addresses_yet_to_visit = 0;
+        user.is_delivering = 0;
+        user.save();
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: "user updated",
+        });
+      } else if (option == 2 || option == 3) {
+        await Orders.updateMany(
+          { order_id: { $in: orderIds } },
+          {
+            $set: {
+              driver_string: user.driver_string,
+              date_sent_to_device: moment(new Date()).format(
+                "yyyy-MM-dd-HH:mm:ss"
+              ),
+            },
+          }
+        );
+        if (option == 3) {
+          user.next_stop = "Started scanning but canceled route";
+          user.previous_stop = "Started scanning but canceled route";
+          user.total_addresses_in_run = 0;
+          user.addresses_yet_to_visit = 0;
+          user.is_delivering = 0;
+          user.save();
+        }
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: "orders updated",
+        });
+      }
+    } else if (step == 2) {
+      responseObj.heading = langObj.cancel_route_done_delivery_heading_text;
+      responseObj.content = langObj.cancel_route_after_delivery_content_text;
+      responseObj.Option1 = langObj.cancel_route_after_delivery_option_1_text;
+      responseObj.Option2 = langObj.cancel_route_after_delivery_option_2_text;
+      responseObj.Option3 = langObj.cancel_route_after_delivery_option_3_text;
+      responseObj.Option4 = langObj.cancel_route_before_delivery_option_4_text;
+      if (firstTime) {
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: responseObj,
+        });
+      }
+      
+if(option == 1) {
+  contentText = "Admin can let you mark all as delivered only by typing password:"
+} else if (option == 2) {
+  contentText = "Admin can let you mark all as delivered but only by typing password:"
+} else if (option == 3) {
+  contentText = "Admin can let you mark all as delivered but only by typing password:"
+}
+      let orders = await Orders.find({ order_id: { $in: orderIds } });
+      if(option == 1 || option == 2) {
+        if (store.sensitive_actions_require_pass == 1) {
+          if (!password) {
+            return res.status(200).send({
+              status: langObj.success_status_text,
+              statusCode: 200,
+              heading: "PASSWORD REQUIRED!!",
+              content: contentText,
+            });
+          } else if (password != admin_pass) {
+            return res.status(400).send({
+              status: langObj.success_status_text,
+              statusCode: 200,
+              heading: "WRONG PASSWORD!!",
+              content: contentText,
+            });
+          }
+        }
+      }
+     
+      if (option == 1) {
+        if (password == admin_pass) {
+          removeOrdersAtCancelRoute(orders);
+        } else {
+          removeOrdersAtCancelRoute(orders);
+        }
+      } else if (option == 2) {
+        if (password == admin_pass) {
+          
+        } else {
+        }
+      }
+    } else if (step == 3) {
+      responseObj.heading = langObj.cancel_route_done_delivery_heading_text;
+      responseObj.content = langObj.cancel_route_done_delivery_content_text;
+      responseObj.Option1 = langObj.cancel_route_done_delivery_option_1_text;
+      responseObj.Option2 = langObj.cancel_route_done_delivery_option_2_text;
+      responseObj.Option3 = langObj.cancel_route_done_delivery_option_3_text;
+      responseObj.Option4 = langObj.cancel_route_done_delivery_option_4_text;
+      responseObj.Option5 = langObj.cancel_route_before_delivery_option_4_text;
+      if (firstTime) {
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: responseObj,
+        });
+      }
+    }
+  } catch (err) {
+    console.log(err);
     res
       .status(400)
       .send({ status: failed_status, statusCode: 400, error: err });
