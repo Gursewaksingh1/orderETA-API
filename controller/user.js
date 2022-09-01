@@ -626,7 +626,7 @@ exports.debug_temp = async (req, res) => {
  *     tags: [user]
  *     responses:
  *       200:
- *         description: Returns new token for authorization
+ *         description: Returns store users
  *         content:
  *           application/json:
  *             schema:
