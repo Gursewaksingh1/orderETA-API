@@ -1,5 +1,5 @@
 const moment = require("moment");
-
+const DriverSteps = require("../model/driversteps");
 const start_delivery_manually_confirm = (orders, confirmedStatus, userId) => {
   orders.forEach((order) => {
     order.boxes.forEach((box) => {
@@ -92,7 +92,21 @@ const admin_override_order = (orders,userPass,storePass,confirmedStatus,userId) 
     }
 }
 
+const driverSteps = (stepType = 2,stepString,user,longitude,latitude) => {
+  const driverSteps = new DriverSteps({
+    step_date: new Date(),
+    route_started: user.original_route_started ?? "",
+    step_geopoint: [longitude, latitude],
+    user_id: user._id,
+    step_string: stepString,
+    step_type: stepType,
+    _created_at: new Date(),
+    _updated_at: new Date(),
+  });
+  driverSteps.save();
+}
 module.exports = {
   start_delivery_manually_confirm,
-  check_similar_address,admin_override_order
+  check_similar_address,admin_override_order,
+  driverSteps
 };

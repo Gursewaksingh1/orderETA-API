@@ -398,6 +398,7 @@ let validateLanguage = () => {
     }),
   ];
 }
+
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,

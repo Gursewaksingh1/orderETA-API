@@ -9,11 +9,14 @@ const {
   start_delivery_manually_confirm,
   check_similar_address,
   admin_override_order,
+  driverSteps,
 } = require("../shared/delivery");
 let {
   uniqueorders,
   unvisitedorders,
   removeOrdersAtCancelRoute,
+  markDeliveredAtCancelRoute,
+  saveForFutureDeliveryCancelRoute
 } = require("../shared/orders");
 const orders = require("../model/orders");
 
@@ -26,7 +29,7 @@ const orders = require("../model/orders");
  *       required:
  *         - orderIds
  *       properties:
- *         refreshToken:
+ *         orderIds:
  *           type: Array
  *           description: array of order ids
  *       example:
@@ -36,7 +39,7 @@ const orders = require("../model/orders");
  * @swagger
  * /delivery:
  *   post:
- *     summary: when token gets expired use this endpoint to get new token
+ *     summary: start delivery after scanning all orders
  *     tags: [delivery]
  *     requestBody:
  *       required: true
@@ -473,12 +476,82 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     cancel_route:
+ *       type: object
+ *       required:
+ *         - step
+ *         - option
+ *       properties:
+ *         step:
+ *           type: number
+ *           description: please enter between 1, 2, 3
+ *         option:
+ *           type: number
+ *           description: please enter of option yu have selected
+ *         firstTime:
+ *           type: boolean
+ *           description: if first time is true means only messages related to step will be send
+ *         orderIds:
+ *           type: Array
+ *           description: array of order ids
+ *       example:
+ *           step: 1
+ *           firstTime: true
+ *           option: 1
+ *           orderIds: ["99574783430","9957478343990"]
+ */
+/**
+ * @swagger
+ * /delivery/cancelroute:
+ *   post:
+ *     summary: this api is used to cancel route of user or exist scanning page
+ *     tags: [delivery]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/cancel_route'
+ *     responses:
+ *       200:
+ *         description: Returns new token for authorization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
 exports.cancelRoute = async (req, res) => {
   let responseObj = {},
     failedStatus;
   let step = req.body.step;
   let firstTime = req.body.firstTime;
   let orderIds = req.body.orderIds ?? [];
+  let stepType = req.body.stepType,
+    stepString,
+    longitude = req.body.longitude,
+    latitude = req.body.latitude;
+    let option = req.body.option;
+    let etaForStore = req.body.etaForStore ?? new Date().toISOString()
+    let password = req.body.password ?? undefined
   try {
     //step 1
     const user = await User.findOne({ _id: req.user.userId });
@@ -496,7 +569,8 @@ exports.cancelRoute = async (req, res) => {
       }
     );
     store.sensitive_actions_require_pass =
-      store.sensitive_actions_require_pass ?? 0;
+      store.sensitive_actions_require_pass ?? 1;
+      store.admin_pass = store.admin_pass ?? "";
     if (step == 1) {
       responseObj.heading = langObj.cancel_route_before_delivery_heading_text;
       responseObj.content = langObj.cancel_route_before_delivery_content_text;
@@ -512,6 +586,7 @@ exports.cancelRoute = async (req, res) => {
         });
       }
       if (option == 1) {
+
         user.next_stop = "Started scanning but canceled route";
         user.previous_stop = "Started scanning but canceled route";
         user.total_addresses_in_run = 0;
@@ -546,7 +621,7 @@ exports.cancelRoute = async (req, res) => {
         return res.status(200).send({
           status: langObj.success_status_text,
           statusCode: 200,
-          message: "orders updated",
+          message: "orders updateds",
         });
       }
     } else if (step == 2) {
@@ -563,16 +638,19 @@ exports.cancelRoute = async (req, res) => {
           message: responseObj,
         });
       }
-      
-if(option == 1) {
-  contentText = "Admin can let you mark all as delivered only by typing password:"
-} else if (option == 2) {
-  contentText = "Admin can let you mark all as delivered but only by typing password:"
-} else if (option == 3) {
-  contentText = "Admin can let you mark all as delivered but only by typing password:"
-}
+
+      if (option == 1) {
+        contentText =
+          "Admin can let you mark all as delivered only by typing password:";
+      } else if (option == 2) {
+        contentText =
+          "Admin can let you mark all as delivered but only by typing password:";
+      } else if (option == 3) {
+        contentText =
+          "Admin can let you mark all as delivered but only by typing password:";
+      }
       let orders = await Orders.find({ order_id: { $in: orderIds } });
-      if(option == 1 || option == 2) {
+      if (option == 1 || option == 2) {
         if (store.sensitive_actions_require_pass == 1) {
           if (!password) {
             return res.status(200).send({
@@ -581,7 +659,7 @@ if(option == 1) {
               heading: "PASSWORD REQUIRED!!",
               content: contentText,
             });
-          } else if (password != admin_pass) {
+          } else if (password != store.admin_pass) {
             return res.status(400).send({
               status: langObj.success_status_text,
               statusCode: 200,
@@ -591,19 +669,34 @@ if(option == 1) {
           }
         }
       }
-     
+
       if (option == 1) {
-        if (password == admin_pass) {
-          removeOrdersAtCancelRoute(orders);
-        } else {
-          removeOrdersAtCancelRoute(orders);
-        }
+        removeOrdersAtCancelRoute(orders,req.user.userId);
       } else if (option == 2) {
-        if (password == admin_pass) {
-          
-        } else {
-        }
+        markDeliveredAtCancelRoute(
+          orders,
+          req.user.userId,
+          latitude,
+          longitude
+        );
+      } else if (option == 3) {
+        saveForFutureDeliveryCancelRoute(
+          orders,
+          req.user.userId,
+          user.driver_string
+        );
       }
+      user.is_delivering = 0;
+      user.next_stop =
+        "When left his last stop ETA was" +
+        etaForStore +
+        "  But he manually cancelled the route before returning!";
+      user.save();
+      return res.status(200).send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        message: "route canceled successfully",
+      });
     } else if (step == 3) {
       responseObj.heading = langObj.cancel_route_done_delivery_heading_text;
       responseObj.content = langObj.cancel_route_done_delivery_content_text;
@@ -619,12 +712,32 @@ if(option == 1) {
           message: responseObj,
         });
       }
+      if (option == 1) {
+      } else if (option == 2) {
+        stepString = "Driver finished delivering and when prompted to return to store he chose \"I do not wish to return to the store now\"";
+      } else if (option == 3) {
+        stepString = "Driver finished delivering and when prompted to return to store he chose \"I am going out for lunch now\""
+      } else if (option == 4) {
+        stepString = "The driver finished delivering and when prompted to return to store he chose \"I am back at the store already\""
+      }
+      driverSteps(stepType, stepString, user, longitude, latitude);
+      user.is_delivering = 0;
+      user.next_stop =
+        "When left his last stop ETA was" +
+        etaForStore +
+        "  But he manually cancelled the route before returning!";
+      user.save();
+      return res.status(200).send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        message: "route canceled successfully",
+      });
     }
   } catch (err) {
     console.log(err);
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 // exports.startDelivery = async (req, res) => {

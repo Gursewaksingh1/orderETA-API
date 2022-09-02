@@ -52,7 +52,7 @@ function saveOrderDetails(order,user) {
        }
        order.save();
 }
-function removeOrdersAtCancelRoute(orders) {
+function removeOrdersAtCancelRoute(orders,userId) {
     let acceptedStatus = ["SCANNED_IN", "MANUALLY_CONFIRMED"]
     orders.forEach(order => {
         order.boxes.forEach(box => {
@@ -62,11 +62,12 @@ function removeOrdersAtCancelRoute(orders) {
                 box.status.driver_id = userId;
             }
         })
+        order.deleted_from_device = 1;
         order.save();
     })
 }
 
-function markDeliveredAtCancelRoute(orders) {
+function markDeliveredAtCancelRoute(orders,userId,latitude,longitude) {
     let scannedAcceptedStatus = ["SCANNED_IN"]
     let manualAcceptedStatus = ["MANUALLY_CONFIRMED"]
     
@@ -77,22 +78,45 @@ function markDeliveredAtCancelRoute(orders) {
                 box.status.description = "Box was manually deleted from the driver's device.";
                 box.status.driver_id = userId;
 
-            } else if(scannedAcceptedStatus.includes(box.status.type)) {
+            } else if(manualAcceptedStatus.includes(box.status.type)) {
                 box.status.type = "MANUALLY_DELIVERED";
                 box.status.driver_id = userId;
             }
     }) 
     order.visited = 1;
-    order.eta = moment(new Date()).format("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+    order.eta = new Date()
     order.notes = order.notes+ " Driver deleted whole route and marked all orders as delivered"
+    order.dropped_off_info = [`50,"${latitude}, ${longitude},123.56,1`]
     order.save()
 })
 }
 
+function saveForFutureDeliveryCancelRoute(orders,userId,driverString) {
+
+    orders.forEach(order => {
+        order.boxes.forEach(box => {
+            if(box.status.type == "SCANNED_IN") {
+                box.status.type = "NOT_SCANNED_OUT";
+                box.status.description = "Driver saved order for future delivery.";
+                box.status.driver_id = userId;
+            } else if (box.status.type == "MANUALLY_CONFIRMED") {
+                box.status.type = "NOT_DELIVERED";
+                box.status.description = "Driver saved order for future delivery.";
+                box.status.driver_id = userId;
+            }
+        })
+
+        order.driver_string = driverString
+        order.date_sent_to_device =  moment(new Date()).format("yyyy-MM-dd-HH:mm:ss")
+        order.save();
+    }) 
+}
 module.exports = {
     confirm_orders,
     unvisitedorders,
     uniqueorders,
     saveOrderDetails,
-    removeOrdersAtCancelRoute
+    removeOrdersAtCancelRoute,
+    markDeliveredAtCancelRoute,
+    saveForFutureDeliveryCancelRoute
 }
