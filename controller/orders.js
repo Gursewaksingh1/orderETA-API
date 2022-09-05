@@ -5,6 +5,7 @@ const Reason = require("../model/reason");
 const moment = require("moment");
 const BarcodeFormat = require("../model/barcodeformat");
 const Language = require("../model/language");
+let { confirm_orders } = require("../shared/orders");
 
 exports.addOrdersForTest = async (req, res) => {
   try {
@@ -62,6 +63,7 @@ exports.getOrders = async (req, res) => {
   let date_sent_to_device_check = moment(new Date()).format(
     process.env.YYYYMMDD
   );
+  let date = moment().format("MM-dd, h:mm:ss a");
   let datetime_created_check = moment(new Date())
     .add(1, "days")
     .format(process.env.YYYYMMDD);
@@ -93,10 +95,11 @@ exports.getOrders = async (req, res) => {
         store_name: "store_name",
         store_id: "store_id",
         days_in_past_to_import: "days_in_past_to_import",
+        confirm_orders_no_swipe: "confirm_orders_no_swipe",
       }
     );
     store.days_in_past_to_import = store.days_in_past_to_import ?? 1;
-
+    store.confirm_orders_no_swipe = store.confirm_orders_no_swipe ?? 0;
     //checking if show_yesterdays_orders_too ==1 and if it is eq to one then also load yesterday orders
     if (store != null || undefined) {
       if (store.show_yesterdays_orders_too == 1) {
@@ -142,7 +145,7 @@ exports.getOrders = async (req, res) => {
       .skip((pageNo - 1) * order_per_page)
       .limit(order_per_page);
     //if confirm_orders_no_swipe is 1 or true then all the orders will be scanned or confirmed automatically
-    if (user.confirm_orders_no_swipe) {
+    if (store.confirm_orders_no_swipe) {
       confirm_orders(orders);
     }
     let newOrders = orders.map((order) => {
@@ -156,6 +159,11 @@ exports.getOrders = async (req, res) => {
     });
     //getting order length
     order_length = orders.length;
+
+    user.previous_stop = "Started scanning in store: " + date;
+    user.latest_action = "Started scanning in store: " + date;
+    user.next_stop = "Started scanning in store: " + date;
+    user.save();
     //if orders array length is empty and page no is 1 then throw responce
     if (order_length == 0 && pageNo >= 1) {
       return res.status(404).send({
@@ -164,6 +172,7 @@ exports.getOrders = async (req, res) => {
         error: langObj.no_order_available_text,
       });
     }
+
     res.status(200).send({
       status: langObj.success_status_text,
       statusCode: 200,
@@ -517,22 +526,26 @@ exports.getOrderBySeq = async (req, res) => {
     }
 
     order.save();
-    langObj.order_in_search_heading_text = langObj.order_in_search_heading_text.replace(
-      "$orderName",
-      order.fname + " " + order.lname
-    );
-    langObj.order_in_search_content_text = langObj.order_in_search_content_text.replace(
-      "$orderName",
-      order.fname + " " + order.lname
-    );
-    langObj.order_in_search_content_text = langObj.order_in_search_content_text.replace(
-      "$streetAddress",
-      order.street_address
-    );
-    langObj.order_in_search_content_text = langObj.order_in_search_content_text.replace(
-      "$totalBoxes",
-      order.boxes.length
-    );
+    langObj.order_in_search_heading_text =
+      langObj.order_in_search_heading_text.replace(
+        "$orderName",
+        order.fname + " " + order.lname
+      );
+    langObj.order_in_search_content_text =
+      langObj.order_in_search_content_text.replace(
+        "$orderName",
+        order.fname + " " + order.lname
+      );
+    langObj.order_in_search_content_text =
+      langObj.order_in_search_content_text.replace(
+        "$streetAddress",
+        order.street_address
+      );
+    langObj.order_in_search_content_text =
+      langObj.order_in_search_content_text.replace(
+        "$totalBoxes",
+        order.boxes.length
+      );
     res.status(200).send({
       status: langObj.success_status_text,
       statusCode: 200,
@@ -672,7 +685,6 @@ exports.deleteOrder = async (req, res) => {
     if (!flag) {
       //fetching order
       const order = await Orders.findOne({
-
         order_id: req.body.orderId,
         store_id: req.body.storeId,
       });
@@ -859,10 +871,14 @@ exports.scanOrderBox = async (req, res) => {
     "MANUALLY_DELIVERED",
     "SCANNED_IN",
   ];
-
+  let date = moment().format("MM-dd, h:mm:ss a");
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
+    user.previous_stop = "Started scanning in store: " + date;
+    user.latest_action = "Started scanning in store: " + date;
+    user.next_stop = "Started scanning in store: " + date;
+    user.save();
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -881,7 +897,7 @@ exports.scanOrderBox = async (req, res) => {
         check_if_order_is_too_old: "check_if_order_is_too_old",
         young_order_time: "young_order_time",
         check_if_order_is_too_young: "check_if_order_is_too_young",
-        admin_pass: "admin_pass"
+        admin_pass: "admin_pass",
       }
     );
     //if these fields not present in store db
@@ -890,7 +906,7 @@ exports.scanOrderBox = async (req, res) => {
     store.check_if_order_is_too_old = store.check_if_order_is_too_old ?? 0;
     store.check_for_old_orders_first = store.check_for_old_orders_first ?? 0;
     store.old_order_time = store.old_order_time ?? 0;
-    store.admin_pass = store.admin_pass ?? 0
+    store.admin_pass = store.admin_pass ?? 0;
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
@@ -1048,7 +1064,10 @@ exports.scanOrderBox = async (req, res) => {
         });
       } else if (user.store_id != components[0]) {
         langObj.invalid_storeId_in_barcode_text =
-          langObj.invalid_storeId_in_barcode_text.replace("$barcodeData", rawData);
+          langObj.invalid_storeId_in_barcode_text.replace(
+            "$barcodeData",
+            rawData
+          );
         return res.status(404).send({
           status: langObj.failed_status_text,
           statusCode: 402,
@@ -1058,7 +1077,10 @@ exports.scanOrderBox = async (req, res) => {
         });
       } else if (components[2] == null) {
         langObj.missing_boxno_in_barcode_text =
-          langObj.missing_boxno_in_barcode_text.replace("$barcodeData", rawData);
+          langObj.missing_boxno_in_barcode_text.replace(
+            "$barcodeData",
+            rawData
+          );
         return res.status(404).send({
           status: langObj.failed_status_text,
           statusCode: 404,
@@ -1310,7 +1332,6 @@ exports.scanOrderBox = async (req, res) => {
         );
 
         if (found_old_order && !password) {
-          
           langObj.oldest_order_found_heading_text =
             langObj.oldest_order_found_heading_text.replace(
               "$SeqNumber",
@@ -1323,7 +1344,7 @@ exports.scanOrderBox = async (req, res) => {
             );
           langObj.oldest_order_found_heading_text =
             langObj.oldest_order_found_heading_text.replace(
-              "$3",
+              "$streetAddress",
               found_old_order.street_address_text
             );
 
@@ -1369,11 +1390,11 @@ exports.scanOrderBox = async (req, res) => {
           store.old_order_time
         );
         if (order_is_old && !password) {
-
-          langObj.order_is_old_heading_text = langObj.order_is_old_heading_text.replace(
-            "$number",
-            parseInt(store.old_order_time / 3600)
-          );
+          langObj.order_is_old_heading_text =
+            langObj.order_is_old_heading_text.replace(
+              "$number",
+              parseInt(store.old_order_time / 3600)
+            );
           return res.status(200).send({
             status: langObj.failed_status_text,
             statusCode: 303,
@@ -1381,7 +1402,6 @@ exports.scanOrderBox = async (req, res) => {
             title: langObj.order_is_old_heading_text,
             error: langObj.oldest_order_found_content_text,
           });
-          
         } else if (order_is_old && password != store.admin_pass) {
           langObj.order_is_old_heading_text =
             langObj.order_is_old_heading_text.replace(
@@ -1592,7 +1612,7 @@ exports.manullyConfirmOrder = async (req, res) => {
     //checking if refused status matched or not
     statusMatch = checkBoxStatus(refusedStatus, updated_order.boxes);
     //if disallow_swipe_order_confirm is 1
-    console.log(user.disallow_swipe_order_confirm );
+    console.log(user.disallow_swipe_order_confirm);
     if (user.disallow_swipe_order_confirm == 1) {
       return res.status(401).send({
         status: langObj.failed_status_text,
@@ -1852,14 +1872,14 @@ async function check_oldest(
     //checking if allOrders array have any data or not
     if (allOrders.length != 0) {
       let oldest_order = allOrders[allOrders.length - 1];
-console.log(oldest_order);
+      console.log(oldest_order);
       // console.log(oldest_order);
       //fetching oldest_ordertime of allOrders array and converting it into date
       let oldest_ordertime = new Date(oldest_order.createdAt);
 
       //fetching this_ordertime and converting it into date
       this_ordertime = new Date(current_order.createdAt);
-      console.log(this_ordertime,oldest_ordertime);
+      console.log(this_ordertime, oldest_ordertime);
       //fetching old_order_time from store and adding it with current date
       considered_old = new Date(new Date().setSeconds(old_order_time));
 

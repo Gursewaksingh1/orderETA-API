@@ -5,6 +5,7 @@ const Store = require("../model/store");
 const Language = require("../model/language");
 const moment = require("moment");
 const lodash = require("lodash");
+var axios = require("axios");
 const {
   start_delivery_manually_confirm,
   check_similar_address,
@@ -16,7 +17,7 @@ let {
   unvisitedorders,
   removeOrdersAtCancelRoute,
   markDeliveredAtCancelRoute,
-  saveForFutureDeliveryCancelRoute
+  saveForFutureDeliveryCancelRoute,
 } = require("../shared/orders");
 const orders = require("../model/orders");
 
@@ -549,9 +550,9 @@ exports.cancelRoute = async (req, res) => {
     stepString,
     longitude = req.body.longitude,
     latitude = req.body.latitude;
-    let option = req.body.option;
-    let etaForStore = req.body.etaForStore ?? new Date().toISOString()
-    let password = req.body.password ?? undefined
+  let option = req.body.option;
+  let etaForStore = req.body.etaForStore ?? new Date().toISOString();
+  let password = req.body.password ?? undefined;
   try {
     //step 1
     const user = await User.findOne({ _id: req.user.userId });
@@ -566,11 +567,13 @@ exports.cancelRoute = async (req, res) => {
         store_name: "store_name",
         admin_pass: "admin_pass",
         sensitive_actions_require_pass: "sensitive_actions_require_pass",
+        tauber_store_name: "tauber_store_name",
+        tauber_entp: "tauber_entp"
       }
     );
     store.sensitive_actions_require_pass =
       store.sensitive_actions_require_pass ?? 1;
-      store.admin_pass = store.admin_pass ?? "";
+    store.admin_pass = store.admin_pass ?? "";
     if (step == 1) {
       responseObj.heading = langObj.cancel_route_before_delivery_heading_text;
       responseObj.content = langObj.cancel_route_before_delivery_content_text;
@@ -586,7 +589,6 @@ exports.cancelRoute = async (req, res) => {
         });
       }
       if (option == 1) {
-
         user.next_stop = "Started scanning but canceled route";
         user.previous_stop = "Started scanning but canceled route";
         user.total_addresses_in_run = 0;
@@ -671,8 +673,41 @@ exports.cancelRoute = async (req, res) => {
       }
 
       if (option == 1) {
-        removeOrdersAtCancelRoute(orders,req.user.userId);
+        removeOrdersAtCancelRoute(orders, req.user.userId);
       } else if (option == 2) {
+        
+        if(store.tauber_store_name) {
+          orderArr = orders.map(order => {
+            return {order_id: order.order_id,actually_delivered: moment(new Date()).format(
+              "yyyy-MM-dd HH:mm:ss"
+            )}
+          })
+          var data = JSON.stringify({
+            driver_name: user.driver_string,
+            order_arr: orderArr,
+            store_name: store.tauber_store_name,
+            entp: store.tauber_entp,
+          });
+  
+          var config = {
+            method: "post",
+            url: "http://connect.compudime.com:1337/parse/functions/set_get",
+            headers: {
+              "X-Parse-Application-Id": "delivery",
+              "Content-Type": "application/json",
+            },
+            data: data,
+          };
+  
+          axios(config)
+            .then(function (response) {
+              console.log(JSON.stringify(response.data));
+            })
+            .catch(function (error) {
+              console.log(error);
+            });
+        }
+      
         markDeliveredAtCancelRoute(
           orders,
           req.user.userId,
@@ -714,11 +749,14 @@ exports.cancelRoute = async (req, res) => {
       }
       if (option == 1) {
       } else if (option == 2) {
-        stepString = "Driver finished delivering and when prompted to return to store he chose \"I do not wish to return to the store now\"";
+        stepString =
+          'Driver finished delivering and when prompted to return to store he chose "I do not wish to return to the store now"';
       } else if (option == 3) {
-        stepString = "Driver finished delivering and when prompted to return to store he chose \"I am going out for lunch now\""
+        stepString =
+          'Driver finished delivering and when prompted to return to store he chose "I am going out for lunch now"';
       } else if (option == 4) {
-        stepString = "The driver finished delivering and when prompted to return to store he chose \"I am back at the store already\""
+        stepString =
+          'The driver finished delivering and when prompted to return to store he chose "I am back at the store already"';
       }
       driverSteps(stepType, stepString, user, longitude, latitude);
       user.is_delivering = 0;
@@ -735,9 +773,7 @@ exports.cancelRoute = async (req, res) => {
     }
   } catch (err) {
     console.log(err);
-    res
-      .status(400)
-      .send({ status: failedStatus, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 // exports.startDelivery = async (req, res) => {
