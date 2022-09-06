@@ -12,6 +12,7 @@ const {
   admin_override_order,
   driverSteps,
 } = require("../shared/delivery");
+const Reason = require("../model/reason");
 let {
   uniqueorders,
   unvisitedorders,
@@ -20,6 +21,7 @@ let {
   saveForFutureDeliveryCancelRoute,
 } = require("../shared/orders");
 const orders = require("../model/orders");
+const reason = require("../model/reason");
 
 /**
  *   @swagger
@@ -251,10 +253,20 @@ exports.startDelivery = async (req, res) => {
     //allow_manully_confirm is a flag and it would be true when user select option i can't scan boxes
     if (allow_manully_confirm) {
       if (user.is_segueing == 1) {
+        const reasons = await Reason.find();
+        reasons.forEach((reason) => {
+          if (reason.type == "CONFIRM") {
+            confirmReasons.push(reason.text);
+          } else if (reason.type == "UNCONFIRM") {
+            unConfirmReasons.push(reason.text);
+          }
+        });
         return res.status(400).send({
           status: failedStatus,
           statusCode: 400,
           message: missingBoxes,
+          confirmReason: confirmReasons,
+          unConfirmReason: unConfirmReasons,
         });
       } else {
         //this else block will work when user selected option "i can't scan orders"
@@ -344,6 +356,42 @@ exports.startDelivery = async (req, res) => {
         unVisitedUniqueOrders,
       },
     });
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
+exports.confirmBox = async (req, res) => {
+  let confirmReason, unConfirmReason;
+  let orderId;
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const order = await Orders.findOne({ order_id: orderId });
+    if (confirmReason) {
+      order.boxes.forEach((box) => {
+        box.status.type = "MANUALLY_CONFIRMED";
+        box.status.driver_id = req.user.userId;
+        box.status.description =
+          "Box is manually confirmed. The driver's reason: " + confirmReason;
+      });
+    } else if (unConfirmReason) {
+      order.boxes.forEach((box) => {
+        box.status.type = "NOT_CONFIRMED";
+        box.status.driver_id = req.user.userId;
+        box.status.description =
+          "Driver didn't take the box. The driver's reason: " + unConfirmReason;
+      });
+    }
+    res
+      .status(200)
+      .send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        data: order,
+      });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -568,7 +616,7 @@ exports.cancelRoute = async (req, res) => {
         admin_pass: "admin_pass",
         sensitive_actions_require_pass: "sensitive_actions_require_pass",
         tauber_store_name: "tauber_store_name",
-        tauber_entp: "tauber_entp"
+        tauber_entp: "tauber_entp",
       }
     );
     store.sensitive_actions_require_pass =
@@ -675,20 +723,22 @@ exports.cancelRoute = async (req, res) => {
       if (option == 1) {
         removeOrdersAtCancelRoute(orders, req.user.userId);
       } else if (option == 2) {
-        
-        if(store.tauber_store_name) {
-          orderArr = orders.map(order => {
-            return {order_id: order.order_id,actually_delivered: moment(new Date()).format(
-              "yyyy-MM-dd HH:mm:ss"
-            )}
-          })
+        if (store.tauber_store_name) {
+          orderArr = orders.map((order) => {
+            return {
+              order_id: order.order_id,
+              actually_delivered: moment(new Date()).format(
+                "yyyy-MM-dd HH:mm:ss"
+              ),
+            };
+          });
           var data = JSON.stringify({
             driver_name: user.driver_string,
             order_arr: orderArr,
             store_name: store.tauber_store_name,
             entp: store.tauber_entp,
           });
-  
+
           var config = {
             method: "post",
             url: "http://connect.compudime.com:1337/parse/functions/set_get",
@@ -698,7 +748,7 @@ exports.cancelRoute = async (req, res) => {
             },
             data: data,
           };
-  
+
           axios(config)
             .then(function (response) {
               console.log(JSON.stringify(response.data));
@@ -707,7 +757,7 @@ exports.cancelRoute = async (req, res) => {
               console.log(error);
             });
         }
-      
+
         markDeliveredAtCancelRoute(
           orders,
           req.user.userId,

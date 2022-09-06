@@ -13,6 +13,6 @@ router.post(
   validate,
   deliveryController.startDelivery
 );
-
+router.post("/confirmBox",isAuth,deliveryController.confirmBox)
 router.post("/cancelroute",isAuth,deliveryController.cancelRoute);
 module.exports = router;
