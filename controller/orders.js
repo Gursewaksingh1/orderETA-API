@@ -524,7 +524,11 @@ exports.getOrderBySeq = async (req, res) => {
     if (order.status != 1) {
       order.status = 0;
     }
-
+    if (order.boxes_scanned_in == order.total_boxes) {
+      order.statusKey = "Ready";
+    } else {
+      order.statusKey = "Unconfirmed";
+    }
     order.save();
     langObj.order_in_search_heading_text =
       langObj.order_in_search_heading_text.replace(
