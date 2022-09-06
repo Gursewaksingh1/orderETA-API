@@ -387,11 +387,11 @@ let validateLanguage = () => {
           throw Error(`language no debe estar vacío y debe ser una número`)
         }
       }
-      if(language <=0 ||language>2) {
+      if(language >0) {
         if(user.Language ==1) {
-          throw Error(`language can either be number 1 or 2`)
+          throw Error(`language can not be zero`)
         } else if (user.Language ==2) {
-          throw Error(`language puede ser número 1 o 2`)
+          throw Error(`el lenguaje no puede ser cero`)
         }
       }
       return language
