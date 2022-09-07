@@ -457,11 +457,11 @@ exports.getOrderBySeq = async (req, res) => {
     const order = await Orders.findOne({
       $or: [
         { Seq: seq },
-        { fname: seq },
-        { lname: seq },
-        { phone: seq },
-        { cell1: seq },
-        { cell2: seq },
+        { fname: { $regex: seq, $options: "i" }  },
+        { lname: { $regex: seq, $options: "i" }  },
+        { phone: { $regex: seq, $options: "i" }  },
+        { cell1: { $regex: seq, $options: "i" }  },
+        { cell2: { $regex: seq, $options: "i" }  },
         { street_address: { $regex: seq, $options: "i" } },
       ],
       $and: [
