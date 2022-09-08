@@ -152,9 +152,9 @@ exports.getOrders = async (req, res) => {
     let newOrders = orders.map((order) => {
       // const copy= {...order}
       if (order.boxes_scanned_in == order.total_boxes) {
-        order.statusKey = "Ready";
+        order.statusKey = langObj.ready_text;
       } else {
-        order.statusKey = "Unconfirmed";
+        order.statusKey = langObj.unconfirmed_text;
       }
       return order;
     });
@@ -299,9 +299,9 @@ exports.get_orders_by_scan = async (req, res) => {
 
     let newOrders = orders.map((order) => {
       if (order.boxes_scanned_in == order.total_boxes) {
-        order.statusKey = "Ready";
+        order.statusKey = langObj.ready_text;
       } else {
-        order.statusKey = "Unconfirmed";
+        order.statusKey = langObj.unconfirmed_text;
       }
       return order;
     });
@@ -530,9 +530,9 @@ exports.getOrderBySeq = async (req, res) => {
       order.status = 0;
     }
     if (order.boxes_scanned_in == order.total_boxes) {
-      order.statusKey = "Ready";
+      order.statusKey = langObj.ready_text;
     } else {
-      order.statusKey = "Unconfirmed";
+      order.statusKey = langObj.unconfirmed_text;
     }
     order.save();
     langObj.order_in_search_heading_text =
@@ -1468,6 +1468,11 @@ exports.scanOrderBox = async (req, res) => {
           error: langObj.box_already_scanned_content_text,
         });
       }
+    }
+    if (order.boxes_scanned_in == order.total_boxes) {
+      order.statusKey = langObj.ready_text;
+    } else {
+      order.statusKey = langObj.unconfirmed_text;
     }
     //finally save order as scanned in
     order.boxes[boxNumber - 1].status.type = "SCANNED_IN";
