@@ -6,6 +6,7 @@ const Language = require("../model/language");
 const moment = require("moment");
 const lodash = require("lodash");
 var axios = require("axios");
+const BarcodeFormat = require("../model/barcodeformat");
 const {
   start_delivery_manually_confirm,
   check_similar_address,
@@ -240,12 +241,11 @@ exports.startDelivery = async (req, res) => {
         heading: langObj.box_not_scanned_heading_text + missingBoxes,
         missingBoxes: missingBoxes,
         content: langObj.box_not_scanned_content_text,
-        Option1: langObj.box_not_scanned_option_1_text,
+        option1: langObj.box_not_scanned_option_1_text,
+        option2: langObj.box_not_scanned_option_2_text,
         option3: langObj.box_not_scanned_option_3_text,
       };
-      if (user.Language == 1) {
-        responseObj.subHeading2 = "Manager override";
-      }
+
       return res
         .status(400)
         .send({ status: failedStatus, statusCode: 400, responseObj });
@@ -282,9 +282,8 @@ exports.startDelivery = async (req, res) => {
         status: langObj.success_status_text,
         statusCode: 200,
         message: {
-          heading:
-            "Admin can let you avoid marking each box this by typing password:",
-          content: "Enter manager password:",
+          heading: langObj.admin_override_text,
+          content: langObj.enter_password_text,
         },
       });
     } else if (admin_override && password) {
@@ -302,10 +301,9 @@ exports.startDelivery = async (req, res) => {
           status: langObj.success_status_text,
           statusCode: 404,
           error: {
-            title: "WRONG PASSWORD!!",
-            heading:
-              "Admin can let you avoid marking each box this by typing password:",
-            content: "Enter manager password:",
+            title: langObj.wrong_password_text,
+            heading: langObj.admin_override_text,
+            content: langObj.enter_password_text,
           },
         });
       }
@@ -361,9 +359,10 @@ exports.startDelivery = async (req, res) => {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
-exports.confirmBox = async (req, res) => {
-  let confirmReason, unConfirmReason;
-  let orderId;
+exports.confirmBoxAtStartDelivery = async (req, res) => {
+  let confirmReason = req.body.confirmReason ?? undefined,
+    unConfirmReason = req.body.unConfirmReason ?? undefined;
+  let orderId = req.body.orderId;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
@@ -385,13 +384,13 @@ exports.confirmBox = async (req, res) => {
           "Driver didn't take the box. The driver's reason: " + unConfirmReason;
       });
     }
-    res
-      .status(200)
-      .send({
-        status: langObj.success_status_text,
-        statusCode: 200,
-        data: order,
-      });
+    order.boxes_scanned_in = order.boxes.length;
+    order.save();
+    res.status(200).send({
+      status: langObj.success_status_text,
+      statusCode: 200,
+      data: order,
+    });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -819,6 +818,194 @@ exports.cancelRoute = async (req, res) => {
         status: langObj.success_status_text,
         statusCode: 200,
         message: "route canceled successfully",
+      });
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
+
+exports.scanOrderForBeginDelivery = async (req, res) => {
+  let regex_arr = [];
+  let components = [],
+    splitWith = [];
+  let store, failedStatus;
+  let rawData = req.body.rawData ?? undefined;
+  let orderIds = req.body.orderIds ?? [];
+  let flag = false;
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        barcode_type: "barcode_type",
+        store_id: "store_id",
+        barcode_minimum: "barcode_minimum",
+        strict_box_scan_in: "strict_box_scan_in",
+        old_order_time: "old_order_time",
+        check_for_old_orders_first: "check_for_old_orders_first",
+        check_if_order_is_too_old: "check_if_order_is_too_old",
+        young_order_time: "young_order_time",
+        check_if_order_is_too_young: "check_if_order_is_too_young",
+        admin_pass: "admin_pass",
+        searchby_sub: "searchby_sub",
+      }
+    );
+    store.searchby_sub = store.searchby_sub ?? 0;
+
+    //converting rawData into string in case front end send it as number
+    rawData = rawData.toString();
+
+    //getting barcode format from db
+    var barcodeFormats = await BarcodeFormat.find();
+    barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
+    // console.log({barcodeFormats});
+
+    var barcodeFormatBUCH = {};
+    //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUCH") {
+        barcodeFormatBUCH = barcodeFormat;
+      }
+    });
+    //then remove BUCH record from arr
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUCH") {
+        barcodeFormats.splice(i, i);
+      }
+    });
+
+    //now push it to the array
+    barcodeFormats.push(barcodeFormatBUCH);
+    //adding values in splitWith & regex_arr & getting from barcode_format collection
+    splitWith = barcodeFormats.map((value) => value.split_with);
+    regex_arr = barcodeFormats.map((value) => value.regexformat);
+
+    //looping over regex_arr arr and comparing rawData with regex
+    for (index = 0; index < regex_arr.length; index++) {
+      if (rawData.match(regex_arr[index]) !== null) {
+        //coomparing regex with barcode
+        if (!isNaN(splitWith[index])) {
+          buchbarcode = rawData.slice(0, -splitWith[index]);
+          components.push(buchbarcode);
+          components.push(rawData.substring(rawData.length - splitWith[index]));
+          //checking if barcode which matched with regex has stodeId in format or not if not then add
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
+        } else {
+          components = rawData.split(splitWith[index]);
+          //checking if barcode which matched with regex has stodeId in format or not if not then add
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
+        }
+        break;
+      }
+    }
+    //checking box scanned
+    if (rawData.length < store.barcode_minimum) {
+      return res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        type: "grid",
+        title: langObj.invalid_barcode_heading_text,
+        error: langObj.invalid_barcode_length_text,
+      });
+    } else if (store.barcode_type == "RDT" && rawData.includes("/") == false) {
+      return res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        type: "grid",
+        title: langObj.invalid_barcode_heading_text,
+        error: langObj.invalid_barcode_text,
+      });
+    } else {
+      if (components.length != 3) {
+        return res.status(406).send({
+          status: langObj.failed_status_text,
+          statusCode: 406,
+          type: "grid",
+          title: langObj.invalid_barcode_heading_text,
+          error: langObj.uncomplete_barcode_text,
+        });
+      } else if (user.store_id != components[0]) {
+        langObj.invalid_storeId_in_barcode_text =
+          langObj.invalid_storeId_in_barcode_text.replace(
+            "$barcodeData",
+            rawData
+          );
+        return res.status(404).send({
+          status: langObj.failed_status_text,
+          statusCode: 402,
+          type: "grid",
+          title: langObj.warning_text,
+          error: langObj.invalid_storeId_in_barcode_text,
+        });
+      } else if (components[2] == null) {
+        langObj.missing_boxno_in_barcode_text =
+          langObj.missing_boxno_in_barcode_text.replace(
+            "$barcodeData",
+            rawData
+          );
+        return res.status(404).send({
+          status: langObj.failed_status_text,
+          statusCode: 404,
+          type: "grid",
+          title: langObj.warning_text,
+          error: langObj.missing_boxno_in_barcode_text,
+        });
+      }
+    }
+    const orders = await Orders.find({
+      order_id: { $in: orderIds },
+      store_id: user.store_id,
+    });
+
+    if (searchby_sub == 0) {
+      orders.forEach((order) => {
+        if (order.order_id == components[1]) {
+          flag = true;
+          return res.status(200).send({
+            status: langObj.success_status_text,
+            statusCode: 200,
+            data: order,
+          });
+        }
+      });
+    } else if (searchby_sub == 1) {
+      orders.forEach((order) => {
+        if (order.items.includes(components[1])) {
+          // let orderItems = order.items;
+          // orderItems.forEach((item,i) => {
+          //   if(item.description == components[1]) {
+          //     boxNo = i+1
+          //   }
+          // })
+          flag = true;
+          return res.status(200).send({
+            status: langObj.success_status_text,
+            statusCode: 200,
+            data: order,
+          });
+        }
+      });
+    }
+    if (!flag) {
+      res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        type: "alert",
+        error: {
+          heading: langObj.missing_box_heading_text,
+          content: langObj.missing_box_content_text,
+        },
       });
     }
   } catch (err) {

@@ -13,6 +13,8 @@ router.post(
   validate,
   deliveryController.startDelivery
 );
-router.post("/confirmBox",isAuth,deliveryController.confirmBox)
+router.post("/confirmBox",isAuth,deliveryController.confirmBoxAtStartDelivery)
 router.post("/cancelroute",isAuth,deliveryController.cancelRoute);
+router.post("/scanbox",isAuth,deliveryController.scanOrderForBeginDelivery);
+
 module.exports = router;
