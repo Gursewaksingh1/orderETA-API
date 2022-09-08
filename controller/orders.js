@@ -179,6 +179,7 @@ exports.getOrders = async (req, res) => {
       statusCode: 200,
       order_length,
       store,
+      isSegueing: user.is_segueing,
       data: { user, orders: newOrders },
     });
   } catch (err) {
@@ -318,6 +319,7 @@ exports.get_orders_by_scan = async (req, res) => {
       statusCode: 200,
       order_length,
       store,
+      isSegueing: user.is_segueing,
       data:  { user, orders: newOrders },
     });
   } catch (err) {
