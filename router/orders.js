@@ -13,7 +13,7 @@ const {
 router.get("/", isAuth, ordersController.getOrders);
 router.post("/test",ordersController.addOrdersForTest)
 router.get("/byscan", isAuth, ordersController.get_orders_by_scan);
-
+router.put("/",isAuth, ordersController.updateOrder);
 router.get("/currentdate", isAuth, ordersController.getOrderByCurrentDate);
 router.put("/scanbarcode", isAuth, ordersController.scanOrderBox);
 router.post(

@@ -196,21 +196,20 @@ exports.getUser = async (req, res) => {
   let userId = req.user.userId;
   let failedStatus;
   try {
+    const user = await User.findOne({ _id: userId });
     const lan = await Language.findOne({ language_id: 1 });
     const langObj = JSON.parse(lan.language_translation);
-   failedStatus = langObj.failed_status_text
-  
+    failedStatus = langObj.failed_status_text;
+
     // fetching user using user id
-    const user = await User.findOne({ _id: userId });
+ 
     res.status(200).send({
       status: langObj.success_status_text,
       statusCode: 200,
       data: user,
     });
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failedStatus, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -218,31 +217,29 @@ exports.updateUser = async (req, res) => {
   let userId = req.user.userId;
   let failedStatus;
   let update_user_failed;
-  let date = moment().format("MM-dd, h:mm:ss a")
+  let userdetails = req.body.userdetails;
   try {
     // fetching user using user id
     const user = await User.findOne({ _id: userId });
     // checking for user language
-    update_user_failed =
-      user.Language == 1
-        ? process.env.UPDATE_USER_FAILED_ENGLISH
-        : process.env.UPDATE_USER_FAILED_SPANISH;
-        const lan = await Language.findOne({ language_id: 1 });
-        const langObj = JSON.parse(lan.language_translation);
-       failedStatus = langObj.failed_status
+    const lan = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(lan.language_translation);
+    failedStatus = langObj.failed_status;
     //updating user
     const update_User = await User.updateOne(
       { _id: userId },
       {
-        previous_stop:"Started scanning in store:"+date,
-        latest_action: "Started scanning in store:"+date,
-        next_stop: "Started scanning in store:"+date,
+        $set: userdetails,
       }
     );
     if (update_User.acknowledged == true) {
       res
         .status(200)
-        .send({ status: langObj.success_status, statusCode: 200, data: update_User });
+        .send({
+          status: langObj.success_status,
+          statusCode: 200,
+          data: update_User,
+        });
     } else {
       res.status(400).send({
         status: failedStatus,
@@ -251,9 +248,7 @@ exports.updateUser = async (req, res) => {
       });
     }
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failedStatus, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -654,15 +649,13 @@ exports.loadView = async (req, res) => {
     const user = await User.findOne({ _id: req.user.userId });
     const storeUsers = await User.find({ store_id: user.store_id });
 
-    let allUsers = storeUsers.map((user) =>{
-      
-      return {userName: user.username,firstName: user.first_name}
-    } )
+    let allUsers = storeUsers.map((user) => {
+      return { userName: user.username, firstName: user.first_name };
+    });
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
-  
 
     res.status(200).send({
       status: langObj.success_status_text,
@@ -734,7 +727,7 @@ exports.loadView = async (req, res) => {
 
 exports.login = async (req, res) => {
   const password = req.body.password;
-let langObj;
+  let langObj;
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -784,8 +777,8 @@ let langObj;
               refreshToken,
             });
 
-             Language.findOne({ language_id: user.Language }).then(lang => {
-              langObj = JSON.parse(lang.language_translation)
+            Language.findOne({ language_id: user.Language }).then((lang) => {
+              langObj = JSON.parse(lang.language_translation);
               res.status(200).send({
                 status: "success",
                 statusCode: 200,
@@ -794,12 +787,11 @@ let langObj;
                 orderEntryMethod: user.orders_entry_method,
                 token,
                 refreshToken,
-                languageObj:langObj,
+                languageObj: langObj,
               });
-            })
+            });
 
             user_logout.save();
-           
           } else {
             res.status(403).send({
               status: "failed",
@@ -946,13 +938,11 @@ exports.logout = async (req, res) => {
       userId: userId,
       token: token,
     });
-    res
-      .status(200)
-      .send({
-        status: langObj.success_status_text,
-        statusCode: 200,
-        data: langObj.user_logout_success_text,
-      });
+    res.status(200).send({
+      status: langObj.success_status_text,
+      statusCode: 200,
+      data: langObj.user_logout_success_text,
+    });
   } catch (err) {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }

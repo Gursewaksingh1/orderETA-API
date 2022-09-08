@@ -21,8 +21,7 @@ let {
   markDeliveredAtCancelRoute,
   saveForFutureDeliveryCancelRoute,
 } = require("../shared/orders");
-const orders = require("../model/orders");
-const reason = require("../model/reason");
+
 
 /**
  *   @swagger
@@ -520,7 +519,7 @@ exports.updateUser = async (req, res) => {
   } catch (err) {
     res
       .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
+      .send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -968,7 +967,7 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
       store_id: user.store_id,
     });
 
-    if (searchby_sub == 0) {
+    if (store.searchby_sub == 0) {
       orders.forEach((order) => {
         if (order.order_id == components[1]) {
           flag = true;
@@ -979,15 +978,15 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
           });
         }
       });
-    } else if (searchby_sub == 1) {
+    } else if (store.searchby_sub == 1) {
       orders.forEach((order) => {
         if (order.items.includes(components[1])) {
-          // let orderItems = order.items;
-          // orderItems.forEach((item,i) => {
-          //   if(item.description == components[1]) {
-          //     boxNo = i+1
-          //   }
-          // })
+          let orderItems = order.items;
+          orderItems.forEach((item, i) => {
+            if (item == components[1]) {
+              boxNo = i + 1;
+            }
+          });
           flag = true;
           return res.status(200).send({
             status: langObj.success_status_text,
@@ -1013,6 +1012,185 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
+
+exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
+  let mapRoute = req.body.mapRoute ?? false;
+  let unVisitedOrdersExist = req.body.unVisitedOrders ?? false;
+  let originalRouteStarted = req.body.originalRouteStarted;
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    let store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name: "store_name",
+        sms_on_route_start: "sms_on_route_start",
+      }
+    );
+    store.sms_on_route_start = store.sms_on_route_start ?? 1;
+    if (mapRoute && unVisitedOrdersExist && store.sms_on_route_start) {
+      var config = {
+        method: "get",
+        url: `https://barcoder-cyf.herokuapp.com/public/nexmo_sms_route_start?store_id=${user.store_id}&route_started=${originalRouteStarted}`
+      };
+      axios(config)
+            .then(function (response) {
+              console.log(JSON.stringify(response.data));
+              res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done"})
+            })
+            .catch(function (error) {
+              console.log(error);
+              res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+            });
+    }
+  } catch (err) {
+    res.status(400).send({status:failedStatus,statusCode:400,error:err})
+
+  }
+};
+
+exports.notifyManagerUserReturn = async (req, res) => {
+  let originalRouteStarted = req.body.originalRouteStarted;
+  let etaForStore = req.body.etaForStore;
+  let justDeliveredAddress = req.body.justDeliveredAddress
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    let store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name: "store_name",
+        sms_on_route_start: "sms_on_route_start",
+        manager_phone: "manager_phone",
+        manager_phone2: "manager_phone2",
+        store_id: "store_id"
+      }
+    );
+    store.sms_on_route_start = store.sms_on_route_start ?? 1;
+    store.manager_phone = store.manager_phone ?? ""
+    store.manager_phone2 = store.manager_phone2 ?? "0"
+    var config = {
+      method: "get",
+      url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_return?eta_back=${etaForStore}&driver_name=${user.first_name}&manager_phone=${store.manager_phone}&last_stop=${justDeliveredAddress}&route_started=${originalRouteStarted}&store_id=${store.store_id}`
+    };
+    axios(config)
+          .then(function (response) {
+            console.log(JSON.stringify(response.data));
+            console.log("pass");
+            
+          })
+          .catch(function (error) {
+            console.log("failed1");
+
+            console.log(error);
+            return res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+          });
+          console.log("reached");
+          setTimeout(() => {
+            if(store.manager_phone2 == "0") {
+              console.log("reached2");
+              return res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done1"})
+            } else {
+              var config = {
+                method: "get",
+                url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_return?eta_back=${etaForStore}&driver_name=${user.first_name}&manager_phone=${store.manager_phone2}&last_stop=${justDeliveredAddress}&route_started=${originalRouteStarted}&store_id=${store.store_id}`
+              };
+              axios(config)
+                    .then(function (response) {
+                      console.log(JSON.stringify(response.data));
+                      console.log("pass2");
+                      res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done"})
+                    })
+                    .catch(function (error) {
+                      console.log("failed2");
+                      console.log(error);
+                      res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+                    });
+            }
+           
+          }, 2000);
+         
+  } catch (err) {
+    res.status(400).send({status:failedStatus,statusCode:400,error:err})
+  }
+}
+
+exports.notifyDriverDoodleTime = async(req, res) => {
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    let store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name: "store_name",
+        sms_on_route_start: "sms_on_route_start",
+        manager_phone: "manager_phone",
+        manager_phone2: "manager_phone2",
+        store_id: "store_id",
+        nexmo_num: "nexmo_num"
+      }
+    );
+    store.sms_on_route_start = store.sms_on_route_start ?? 1;
+    store.manager_phone = store.manager_phone ?? "";
+    store.nexmo_num = store.nexmo_num ?? " ";
+    store.manager_phone2 = store.manager_phone2 ?? "0";
+    var config = {
+      method: "get",
+      url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_doodle?from=${store.nexmo_num}&driver_name=${user.first_name}&manager_phone=${store.manager_phone}`
+    };
+    axios(config)
+          .then(function (response) {
+            console.log(JSON.stringify(response.data));
+            console.log("pass");
+            
+          })
+          .catch(function (error) {
+            console.log("failed1");
+
+            console.log(error);
+            return res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+          });
+          console.log("reached");
+          setTimeout(() => {
+            if(store.manager_phone2 == "0") {
+              console.log("reached2");
+              return res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done1"})
+            } else {
+              var config = {
+                method: "get",
+                url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_doodle?from=${store.nexmo_num}&driver_name=${user.first_name}&manager_phone=${store.manager_phone2}`
+              };
+              axios(config)
+                    .then(function (response) {
+                      console.log(JSON.stringify(response.data));
+                      console.log("pass2");
+                      res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done"})
+                    })
+                    .catch(function (error) {
+                      console.log("failed2");
+                      console.log(error);
+                      res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+                    });
+            }
+           
+          }, 2000);
+         
+  } catch (err) {
+    res.status(400).send({status:failedStatus,statusCode:400,error:err})
+  }
+}
 // exports.startDelivery = async (req, res) => {
 //   let {
 //     startLatitude,

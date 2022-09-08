@@ -16,7 +16,7 @@ const isAuth = require("../middleware/isAuth");
 router.get("/userdetails", isAuth, userController.getUser);
 
 router.put(
-  "/update_user_stops",
+  "/user",
   isAuth,
   update_user_stops(),
   validate,

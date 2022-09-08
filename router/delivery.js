@@ -2,9 +2,12 @@ const express = require("express");
 const deliveryController = require("../controller/delivery");
 const router = express.Router();
 const isAuth = require("../middleware/isAuth");
-const {deliveryValidationRules} = require("../validatorSchema/validationrules");
+const {
+  deliveryValidationRules,
+  smsManagerValidation,
+  notifyManagerUserReturnValidation,
+} = require("../validatorSchema/validationrules");
 const validate = require("../validatorSchema/validatemiddleware");
-const { route } = require("./orders");
 
 router.post(
   "/",
@@ -13,8 +16,30 @@ router.post(
   validate,
   deliveryController.startDelivery
 );
-router.post("/confirmBox",isAuth,deliveryController.confirmBoxAtStartDelivery)
-router.post("/cancelroute",isAuth,deliveryController.cancelRoute);
-router.post("/scanbox",isAuth,deliveryController.scanOrderForBeginDelivery);
-
+router.post(
+  "/confirmBox",
+  isAuth,
+  deliveryController.confirmBoxAtStartDelivery
+);
+router.post("/cancelroute", isAuth, deliveryController.cancelRoute);
+router.post("/scanbox", isAuth, deliveryController.scanOrderForBeginDelivery);
+router.post(
+  "/smsmanager",
+  isAuth,
+  smsManagerValidation(),
+  validate,
+  deliveryController.sendSmsOnStartDeliveryToManager
+);
+router.post(
+  "/notifymanager",
+  isAuth,
+  notifyManagerUserReturnValidation(),
+  validate,
+  deliveryController.notifyManagerUserReturn
+);
+router.post(
+  "/driverdoodle",
+  isAuth,
+  deliveryController.notifyDriverDoodleTime
+);
 module.exports = router;

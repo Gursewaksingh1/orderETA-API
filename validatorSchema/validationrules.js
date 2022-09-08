@@ -30,6 +30,7 @@ function customVerifyLength(val,userObj,minLen,errorMsg,errorMsg_spanish) {
 }
 const update_user_stops = () => {
   return [
+    //console.log("data");
     body("previous_stop").trim()
     .custom(async (previous_stop , { req })=> {
       const user = await User.findOne({_id:req.user.userId})
@@ -353,7 +354,20 @@ let validate_user_image = () => {
     })
   ]
 }
-
+const smsManagerValidation = () => {
+  return [
+    body("originalRouteStarted").not().isEmpty().withMessage("originalRouteStarted is must"),
+    body("mapRoute").not().isEmpty().withMessage("mapRoute should not be empty"),
+    body("unVisitedOrders").not().isEmpty().withMessage("unVisitedOrdersExist should not be empty")
+  ]
+}
+const notifyManagerUserReturnValidation = () => {
+  return [
+    body("originalRouteStarted").not().isEmpty().withMessage("originalRouteStarted is must"),
+    body("etaForStore").not().isEmpty().withMessage("etaForStore should not be empty"),
+    body("justDeliveredAddress").not().isEmpty().withMessage("justDeliveredAddress should not be empty")
+  ]
+}
 let validate_logged_routing_request = () => {
   return [
     body("the_url").custom(async (the_url , { req })=> {
@@ -406,5 +420,7 @@ module.exports = {
   validatedebug_temp,
   validate_logged_routing_request,
   validateLanguage,
-  validate_reason_for_manully_confirm_order
+  validate_reason_for_manully_confirm_order,
+  smsManagerValidation,
+  notifyManagerUserReturnValidation
 };
