@@ -71,6 +71,7 @@ exports.getOrders = async (req, res) => {
     pageNo = parseInt(pageNo);
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
+    user.is_segueing = user.is_segueing ?? 0
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -233,6 +234,7 @@ exports.get_orders_by_scan = async (req, res) => {
 
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
+    user.is_segueing = user.is_segueing ?? 0
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -316,7 +318,7 @@ exports.get_orders_by_scan = async (req, res) => {
       statusCode: 200,
       order_length,
       store,
-      data: newOrders,
+      data:  { user, orders: newOrders },
     });
   } catch (err) {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -442,6 +444,7 @@ exports.getOrderBySeq = async (req, res) => {
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
+    user.is_segueing = user.is_segueing ?? 0
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -457,11 +460,11 @@ exports.getOrderBySeq = async (req, res) => {
     const order = await Orders.findOne({
       $or: [
         { Seq: seq },
-        { fname: { $regex: seq, $options: "i" }  },
-        { lname: { $regex: seq, $options: "i" }  },
-        { phone: { $regex: seq, $options: "i" }  },
-        { cell1: { $regex: seq, $options: "i" }  },
-        { cell2: { $regex: seq, $options: "i" }  },
+        { fname: { $regex: seq, $options: "i" } },
+        { lname: { $regex: seq, $options: "i" } },
+        { phone: { $regex: seq, $options: "i" } },
+        { cell1: { $regex: seq, $options: "i" } },
+        { cell2: { $regex: seq, $options: "i" } },
         { street_address: { $regex: seq, $options: "i" } },
       ],
       $and: [
@@ -558,6 +561,7 @@ exports.getOrderBySeq = async (req, res) => {
         heading: langObj.order_in_search_heading_text,
         content: langObj.order_in_search_content_text,
       },
+      isSegueing: user.is_segueing,
       data: order,
     });
   } catch (err) {
@@ -902,6 +906,7 @@ exports.scanOrderBox = async (req, res) => {
         young_order_time: "young_order_time",
         check_if_order_is_too_young: "check_if_order_is_too_young",
         admin_pass: "admin_pass",
+        searchby_sub: "searchby_sub",
       }
     );
     //if these fields not present in store db
@@ -911,6 +916,7 @@ exports.scanOrderBox = async (req, res) => {
     store.check_for_old_orders_first = store.check_for_old_orders_first ?? 0;
     store.old_order_time = store.old_order_time ?? 0;
     store.admin_pass = store.admin_pass ?? 0;
+    store.searchby_sub = store.searchby_sub ?? 0;
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
@@ -1810,6 +1816,38 @@ exports.resetOrder = async (req, res) => {
   }
 };
 
+exports.updateOrder = async (req, res) => {
+  let orderIds = req.body.orderIds ?? [];
+  let orderDetails = req.body.orderDetails;
+  let failedStatus;
+  let userId = req.user.userId;
+  try {
+    console.log(typeof orderDetails);
+    //fetching user using user id
+    const user = await User.findOne({ _id: userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const orders = await Orders.updateMany(
+      { order_id: { $in: orderIds } },
+      {$set:orderDetails}
+    );
+
+    if(orders.acknowledged == true) {
+      res
+      .status(200)
+      .send({ status: langObj.success_status, statusCode: 200, data: orders });
+    } else {
+      res
+      .status(404)
+      .send({ status: langObj.success_status, statusCode: 404, error: "orders not updated" });
+    }
+  
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
 async function findData(Modal, queryObj = {}, reqFieldObj = {}) {
   let reqFields,
     data,
