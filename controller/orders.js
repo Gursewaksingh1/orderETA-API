@@ -71,7 +71,7 @@ exports.getOrders = async (req, res) => {
     pageNo = parseInt(pageNo);
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
-    user.is_segueing = user.is_segueing ?? 0
+    user.is_segueing = user.is_segueing ?? 0;
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -235,7 +235,7 @@ exports.get_orders_by_scan = async (req, res) => {
 
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
-    user.is_segueing = user.is_segueing ?? 0
+    user.is_segueing = user.is_segueing ?? 0;
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -320,7 +320,7 @@ exports.get_orders_by_scan = async (req, res) => {
       order_length,
       store,
       isSegueing: user.is_segueing,
-      data:  { user, orders: newOrders },
+      data: { user, orders: newOrders },
     });
   } catch (err) {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -446,7 +446,7 @@ exports.getOrderBySeq = async (req, res) => {
   try {
     //fetching user using user id
     const user = await User.findOne({ _id: userId });
-    user.is_segueing = user.is_segueing ?? 0
+    user.is_segueing = user.is_segueing ?? 0;
     // checking for user language
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
@@ -909,6 +909,9 @@ exports.scanOrderBox = async (req, res) => {
         check_if_order_is_too_young: "check_if_order_is_too_young",
         admin_pass: "admin_pass",
         searchby_sub: "searchby_sub",
+        check_orders_not_other_drivers_assign:
+          "check_orders_not_other_drivers_assign",
+          check_orders_not_empty_assign: "check_orders_not_empty_assign"
       }
     );
     //if these fields not present in store db
@@ -919,6 +922,9 @@ exports.scanOrderBox = async (req, res) => {
     store.old_order_time = store.old_order_time ?? 0;
     store.admin_pass = store.admin_pass ?? 0;
     store.searchby_sub = store.searchby_sub ?? 0;
+    store.check_orders_not_other_drivers_assign =
+      store.check_orders_not_other_drivers_assign ?? 0;
+      store.check_orders_not_empty_assign = store.check_orders_not_empty_assign ?? 0
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
@@ -1103,15 +1109,19 @@ exports.scanOrderBox = async (req, res) => {
       }
     }
 
-    storeId = components[0];
-    orderId = components[1];
+
+      storeId = components[0];
+      orderId = components[1];
+      const order = await Orders.findOne({
+        store_id: storeId,
+        order_id: orderId,
+      });
+   
+   
     boxNumber = parseInt(components[2]);
 
     //fetching order
-    const order = await Orders.findOne({
-      store_id: storeId,
-      order_id: orderId,
-    });
+    
 
     //if order is null
     if (order == null) {
@@ -1215,14 +1225,16 @@ exports.scanOrderBox = async (req, res) => {
     if (order.boxes.length !== 0 && statusMatch && order.status != 1) {
       //check if user trying to scan someone else's order then throw response
       //inside (if check) var will tell us if user gave permission for scanning else's order
-
       if (
-        req.user.userId != order.user_id &&
-        order.user_id != undefined &&
-        order.user_id.length != 0 &&
-        !flag &&
-        !check
+        (store.check_orders_not_empty_assign == 1 &&
+          order.driver_string != user.driver_string && !flag &&
+          !check) ||
+        (store.check_orders_not_other_drivers_assign == 1 &&
+          order.driver_string != "" &&
+          order.driver_string != user.driver_string &&  !flag &&
+          !check)
       ) {
+     
         let total_box_scan = await Orders.findOne({
           store_id: storeId,
           order_id: orderId,
@@ -1245,213 +1257,215 @@ exports.scanOrderBox = async (req, res) => {
           title: langObj.another_driver_order_heading_text,
           error: responseObj,
         });
-      }
-      if (!flag) {
-        //if scanning first time order but order belongs to logged in user or anonymous
-        let yesterdayDate = moment()
-          .subtract(1, "days")
-          .format(process.env.YYYYMMDD);
-        let date_sent_to_device_check = moment(new Date()).format(
-          process.env.YYYYMMDD
-        );
-        if (store != null || undefined) {
-          if (store.show_yesterdays_orders_too == 1) {
-            //code for getting yesterday date
-            date_sent_to_device_check = moment()
-              .subtract(1, "days")
-              .format(process.env.YYYYMMDD);
+      } else if(!check) {
+        if (!flag) {
+          //if scanning first time order but order belongs to logged in user or anonymous
+          let yesterdayDate = moment()
+            .subtract(1, "days")
+            .format(process.env.YYYYMMDD);
+          let date_sent_to_device_check = moment(new Date()).format(
+            process.env.YYYYMMDD
+          );
+          if (store != null || undefined) {
+            if (store.show_yesterdays_orders_too == 1) {
+              //code for getting yesterday date
+              date_sent_to_device_check = moment()
+                .subtract(1, "days")
+                .format(process.env.YYYYMMDD);
+            }
           }
-        }
-        //preparing query for fetching orders of user
-        if (user.load_in_late_orders_too != 1) {
-          query_for_user_orders = {
-            store_id: user.store_id,
-            hidden: { $ne: 1 },
-            deleted_from_device: { $ne: 1 },
-            visited: { $ne: 1 },
-            driver_string: { $eq: user.driver_string },
-            DeliveryDate: {
-              $ne: moment().subtract(1, "days").format(process.env.YYYYMMDD),
-            },
-            $and: [
-              { date_sent_to_device: { $gte: date_sent_to_device_check } },
-              {
-                datetime_created: {
-                  $lt: moment(new Date())
-                    .add(1, "days")
-                    .format(process.env.YYYYMMDD),
-                },
+          //preparing query for fetching orders of user
+          if (user.load_in_late_orders_too != 1) {
+            query_for_user_orders = {
+              store_id: user.store_id,
+              hidden: { $ne: 1 },
+              deleted_from_device: { $ne: 1 },
+              visited: { $ne: 1 },
+              driver_string: { $eq: user.driver_string },
+              DeliveryDate: {
+                $ne: moment().subtract(1, "days").format(process.env.YYYYMMDD),
               },
-            ],
-          };
-        } else {
-          query_for_user_orders = {
-            store_id: user.store_id,
-            hidden: { $ne: 1 },
-            deleted_from_device: { $ne: 1 },
-            visited: { $ne: 1 },
-            driver_string: { $eq: user.driver_string },
-            DeliveryDate: {
-              $ne: moment().subtract(1, "days").format(process.env.YYYYMMDD),
-            },
-            $and: [
-              { date_sent_to_device: { $gte: date_sent_to_device_check } },
-            ],
-          };
-        }
-        //query for getting unassigned orders
-        query_for_unassigned_orders = {
-          store_id: user.store_id,
-          visited: { $ne: 1 },
-          route_started: { $eq: null },
-          driver_string: { $eq: null },
-          datetime_created: {
-            $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
-          },
-        };
-        //change in datetime_created if load_in_late_orders_too is not eq to one
-        if (user.load_in_late_orders_too != 1) {
+              $and: [
+                { date_sent_to_device: { $gte: date_sent_to_device_check } },
+                {
+                  datetime_created: {
+                    $lt: moment(new Date())
+                      .add(1, "days")
+                      .format(process.env.YYYYMMDD),
+                  },
+                },
+              ],
+            };
+          } else {
+            query_for_user_orders = {
+              store_id: user.store_id,
+              hidden: { $ne: 1 },
+              deleted_from_device: { $ne: 1 },
+              visited: { $ne: 1 },
+              driver_string: { $eq: user.driver_string },
+              DeliveryDate: {
+                $ne: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+              },
+              $and: [
+                { date_sent_to_device: { $gte: date_sent_to_device_check } },
+              ],
+            };
+          }
+          //query for getting unassigned orders
           query_for_unassigned_orders = {
             store_id: user.store_id,
             visited: { $ne: 1 },
             route_started: { $eq: null },
             driver_string: { $eq: null },
-
-            $and: [
-              {
-                datetime_created: {
-                  $gte: moment()
-                    .subtract(1, "days")
-                    .format(process.env.YYYYMMDD),
-                },
-              },
-              {
-                datetime_created: {
-                  $lt: moment().add(1, "days").format(process.env.YYYYMMDD),
-                },
-              },
-            ],
+            datetime_created: {
+              $gte: moment().subtract(1, "days").format(process.env.YYYYMMDD),
+            },
           };
-        }
-        //pass queries and other values and if func return false then skip thsi else through response oldest order exist
-        let found_old_order = await check_oldest(
-          store.old_order_time,
-          yesterdayDate,
-          order,
-          store.check_for_old_orders_first,
-          query_for_user_orders,
-          query_for_unassigned_orders
-        );
-
-        if (found_old_order && !password) {
-          langObj.oldest_order_found_heading_text =
-            langObj.oldest_order_found_heading_text.replace(
-              "$SeqNumber",
-              found_old_order.seq
-            );
-          langObj.oldest_order_found_heading_text =
-            langObj.oldest_order_found_heading_text.replace(
-              "$orderName",
-              found_old_order.fname + " " + found_old_order.lname
-            );
-          langObj.oldest_order_found_heading_text =
-            langObj.oldest_order_found_heading_text.replace(
-              "$streetAddress",
-              found_old_order.street_address_text
-            );
-
-          return res.status(302).send({
-            status: langObj.success_status_text,
-            statusCode: 302,
-            type: "alert",
-            title: langObj.oldest_order_found_heading_text,
-            message: langObj.oldest_order_found_content_text,
-          });
-        } else if (found_old_order && password != store.admin_pass) {
-          langObj.oldest_order_found_heading_text =
-            langObj.oldest_order_found_heading_text.replace(
-              "$SeqNumber",
-              found_old_order.seq
-            );
-          langObj.oldest_order_found_heading_text =
-            langObj.oldest_order_found_heading_text.replace(
-              "$orderName",
-              found_old_order.fname + " " + found_old_order.lname
-            );
-          langObj.oldest_order_found_heading_text =
-            langObj.oldest_order_found_heading_text.replace(
-              "$streetAddress",
-              found_old_order.street_address
-            );
-
-          return res.status(302).send({
-            status: langObj.success_status_text,
-            statusCode: 302,
-            type: "alert",
-            title: langObj.oldest_order_found_heading_text,
-            message: langObj.oldest_order_found_content_text,
-          });
-        } else if (found_old_order && password == store.admin_pass) {
-          found_old_order.hidden = 1;
-          found_old_order.save();
-        }
-
-        let order_is_old = check_if_order_is_old(
-          store.check_if_order_is_too_old,
-          order,
-          store.old_order_time
-        );
-        if (order_is_old && !password) {
-          langObj.order_is_old_heading_text =
-            langObj.order_is_old_heading_text.replace(
-              "$number",
-              parseInt(store.old_order_time / 3600)
-            );
-          return res.status(200).send({
-            status: langObj.failed_status_text,
-            statusCode: 303,
-            type: "alert",
-            title: langObj.order_is_old_heading_text,
-            error: langObj.oldest_order_found_content_text,
-          });
-        } else if (order_is_old && password != store.admin_pass) {
-          langObj.order_is_old_heading_text =
-            langObj.order_is_old_heading_text.replace(
-              "$number",
-              parseInt(store.old_order_time / 3600)
-            );
-          return res.status(200).send({
-            status: langObj.failed_status_text,
-            statusCode: 303,
-            type: "alert",
-            title: langObj.order_is_old_heading_text,
-            error: langObj.oldest_order_found_content_text,
-          });
-        }
-
-        let order_is_young = check_if_order_is_young(
-          store.check_if_order_is_too_young,
-          store.young_order_time,
-          order
-        );
-        if (order_is_young && !password) {
-          return res.status(200).send({
-            status: langObj.failed_status_text,
-            statusCode: 303,
-            type: "alert",
-            title: langObj.order_is_young_heading_text,
-            error: langObj.oldest_order_found_content_text,
-          });
-        } else if (order_is_young && password != store.admin_pass) {
-          return res.status(200).send({
-            status: langObj.failed_status_text,
-            statusCode: 303,
-            type: "alert",
-            title: langObj.order_is_young_heading_text,
-            error: langObj.oldest_order_found_content_text,
-          });
+          //change in datetime_created if load_in_late_orders_too is not eq to one
+          if (user.load_in_late_orders_too != 1) {
+            query_for_unassigned_orders = {
+              store_id: user.store_id,
+              visited: { $ne: 1 },
+              route_started: { $eq: null },
+              driver_string: { $eq: null },
+  
+              $and: [
+                {
+                  datetime_created: {
+                    $gte: moment()
+                      .subtract(1, "days")
+                      .format(process.env.YYYYMMDD),
+                  },
+                },
+                {
+                  datetime_created: {
+                    $lt: moment().add(1, "days").format(process.env.YYYYMMDD),
+                  },
+                },
+              ],
+            };
+          }
+          //pass queries and other values and if func return false then skip thsi else through response oldest order exist
+          let found_old_order = await check_oldest(
+            store.old_order_time,
+            yesterdayDate,
+            order,
+            store.check_for_old_orders_first,
+            query_for_user_orders,
+            query_for_unassigned_orders
+          );
+  
+          if (found_old_order && !password) {
+            langObj.oldest_order_found_heading_text =
+              langObj.oldest_order_found_heading_text.replace(
+                "$SeqNumber",
+                found_old_order.seq
+              );
+            langObj.oldest_order_found_heading_text =
+              langObj.oldest_order_found_heading_text.replace(
+                "$orderName",
+                found_old_order.fname + " " + found_old_order.lname
+              );
+            langObj.oldest_order_found_heading_text =
+              langObj.oldest_order_found_heading_text.replace(
+                "$streetAddress",
+                found_old_order.street_address_text
+              );
+  
+            return res.status(302).send({
+              status: langObj.success_status_text,
+              statusCode: 302,
+              type: "alert",
+              title: langObj.oldest_order_found_heading_text,
+              message: langObj.oldest_order_found_content_text,
+            });
+          } else if (found_old_order && password != store.admin_pass) {
+            langObj.oldest_order_found_heading_text =
+              langObj.oldest_order_found_heading_text.replace(
+                "$SeqNumber",
+                found_old_order.seq
+              );
+            langObj.oldest_order_found_heading_text =
+              langObj.oldest_order_found_heading_text.replace(
+                "$orderName",
+                found_old_order.fname + " " + found_old_order.lname
+              );
+            langObj.oldest_order_found_heading_text =
+              langObj.oldest_order_found_heading_text.replace(
+                "$streetAddress",
+                found_old_order.street_address
+              );
+  
+            return res.status(302).send({
+              status: langObj.success_status_text,
+              statusCode: 302,
+              type: "alert",
+              title: langObj.oldest_order_found_heading_text,
+              message: langObj.oldest_order_found_content_text,
+            });
+          } else if (found_old_order && password == store.admin_pass) {
+            found_old_order.hidden = 1;
+            found_old_order.save();
+          }
+  
+          let order_is_old = check_if_order_is_old(
+            store.check_if_order_is_too_old,
+            order,
+            store.old_order_time
+          );
+          if (order_is_old && !password) {
+            langObj.order_is_old_heading_text =
+              langObj.order_is_old_heading_text.replace(
+                "$number",
+                parseInt(store.old_order_time / 3600)
+              );
+            return res.status(200).send({
+              status: langObj.failed_status_text,
+              statusCode: 303,
+              type: "alert",
+              title: langObj.order_is_old_heading_text,
+              error: langObj.oldest_order_found_content_text,
+            });
+          } else if (order_is_old && password != store.admin_pass) {
+            langObj.order_is_old_heading_text =
+              langObj.order_is_old_heading_text.replace(
+                "$number",
+                parseInt(store.old_order_time / 3600)
+              );
+            return res.status(200).send({
+              status: langObj.failed_status_text,
+              statusCode: 303,
+              type: "alert",
+              title: langObj.order_is_old_heading_text,
+              error: langObj.oldest_order_found_content_text,
+            });
+          }
+  
+          let order_is_young = check_if_order_is_young(
+            store.check_if_order_is_too_young,
+            store.young_order_time,
+            order
+          );
+          if (order_is_young && !password) {
+            return res.status(200).send({
+              status: langObj.failed_status_text,
+              statusCode: 303,
+              type: "alert",
+              title: langObj.order_is_young_heading_text,
+              error: langObj.oldest_order_found_content_text,
+            });
+          } else if (order_is_young && password != store.admin_pass) {
+            return res.status(200).send({
+              status: langObj.failed_status_text,
+              statusCode: 303,
+              type: "alert",
+              title: langObj.order_is_young_heading_text,
+              error: langObj.oldest_order_found_content_text,
+            });
+          }
         }
       }
+    
     } else {
       //old app requirement when strict_box_scan_in ==1 then only through this response
       if (store.strict_box_scan_in == 1) {
@@ -1505,6 +1519,7 @@ exports.scanOrderBox = async (req, res) => {
       data: order,
     });
   } catch (err) {
+    console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 500, error: err });
   }
 };
@@ -1837,19 +1852,26 @@ exports.updateOrder = async (req, res) => {
     failedStatus = langObj.failed_status_text;
     const orders = await Orders.updateMany(
       { order_id: { $in: orderIds } },
-      {$set:orderDetails}
+      { $set: orderDetails }
     );
 
-    if(orders.acknowledged == true) {
+    if (orders.acknowledged == true) {
       res
-      .status(200)
-      .send({ status: langObj.success_status, statusCode: 200, data: orders });
+        .status(200)
+        .send({
+          status: langObj.success_status,
+          statusCode: 200,
+          data: orders,
+        });
     } else {
       res
-      .status(404)
-      .send({ status: langObj.success_status, statusCode: 404, error: "orders not updated" });
+        .status(404)
+        .send({
+          status: langObj.success_status,
+          statusCode: 404,
+          error: "orders not updated",
+        });
     }
-  
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
