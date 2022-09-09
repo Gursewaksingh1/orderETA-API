@@ -857,7 +857,7 @@ exports.scanOrderBox = async (req, res) => {
   let failedStatus;
 
   let statusMatch = false;
-  let password = req.body.password ?? false;
+  let password = req.body.password || false;
   let userId = req.user.userId,
     flag = false;
   let store, storeId, orderId, boxNumber;
