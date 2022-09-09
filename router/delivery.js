@@ -5,7 +5,7 @@ const isAuth = require("../middleware/isAuth");
 const {
   deliveryValidationRules,
   smsManagerValidation,
-  notifyManagerUserReturnValidation,
+  notifyManagerUserReturnValidation,returnOrder
 } = require("../validatorSchema/validationrules");
 const validate = require("../validatorSchema/validatemiddleware");
 
@@ -29,6 +29,13 @@ router.post(
   smsManagerValidation(),
   validate,
   deliveryController.sendSmsOnStartDeliveryToManager
+);
+router.post(
+  "/returnorder",
+  isAuth,
+  returnOrder(),
+  validate,
+  deliveryController.tableViewOptionAfterStartDelivery
 );
 router.post(
   "/notifymanager",

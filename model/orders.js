@@ -101,6 +101,7 @@ const ordersSchema = new Schema({
         
         type: String,
     },
+    driver_notes: String,
     date_sent_to_device: {
         
         type: String,

@@ -22,7 +22,6 @@ let {
   saveForFutureDeliveryCancelRoute,
 } = require("../shared/orders");
 
-
 /**
  *   @swagger
  *   components:
@@ -362,34 +361,39 @@ exports.confirmBoxAtStartDelivery = async (req, res) => {
   let confirmReason = req.body.confirmReason ?? undefined,
     unConfirmReason = req.body.unConfirmReason ?? undefined;
   let orderId = req.body.orderId;
+  let boxNo = req.body.boxNo;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
     const order = await Orders.findOne({ order_id: orderId });
-    if (confirmReason) {
-      order.boxes.forEach((box) => {
-        box.status.type = "MANUALLY_CONFIRMED";
-        box.status.driver_id = req.user.userId;
-        box.status.description =
+    if (order.boxes[boxNo] != undefined) {
+      if (confirmReason) {
+        order.boxes[boxNo].status.type = "MANUALLY_CONFIRMED";
+        order.boxes[boxNo].status.driver_id = req.user.userId;
+        order.boxes[boxNo].status.description =
           "Box is manually confirmed. The driver's reason: " + confirmReason;
-      });
-    } else if (unConfirmReason) {
-      order.boxes.forEach((box) => {
-        box.status.type = "NOT_CONFIRMED";
-        box.status.driver_id = req.user.userId;
-        box.status.description =
+      } else if (unConfirmReason) {
+        order.boxes[boxNo].status.type = "NOT_CONFIRMED";
+        order.boxes[boxNo].status.driver_id = req.user.userId;
+        order.boxes[boxNo].status.description =
           "Driver didn't take the box. The driver's reason: " + unConfirmReason;
+      }
+      order.boxes_scanned_in = order.boxes_scanned_in + 1 ?? 1;
+      order.save();
+      res.status(200).send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        data: order,
+      });
+    } else {
+      res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        error: langObj.missing_box_heading_text,
       });
     }
-    order.boxes_scanned_in = order.boxes.length;
-    order.save();
-    res.status(200).send({
-      status: langObj.success_status_text,
-      statusCode: 200,
-      data: order,
-    });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -517,9 +521,7 @@ exports.updateUser = async (req, res) => {
       message: "user updated successfully",
     });
   } catch (err) {
-    res
-      .status(400)
-      .send({ status: failedStatus, statusCode: 400, error: err });
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
@@ -1013,6 +1015,121 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
   }
 };
 
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     table_view_options:
+ *       type: object
+ *       required:
+ *         - option
+ *       properties:
+ *         option:
+ *           type: number
+ *           description: please enter of option yu have selected
+ *         latitude:
+ *           type: boolean
+ *           description: latitude of user location
+ *         longitude:
+ *           type: boolean
+ *           description: longitude of user location
+ *         orderId:
+ *           type: string
+ *           description: order id of selected order
+ *       example:
+ *           latitude: 30
+ *           longitude: 40
+ *           option: 1
+ *           orderId: "99574783430"
+ */
+/**
+ * @swagger
+ * /delivery/returnorder:
+ *   post:
+ *     summary: this api is used when driver will take order back due to some reason
+ *     tags: [delivery]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/table_view_options'
+ *     responses:
+ *       200:
+ *         description: Returns new token for authorization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
+exports.tableViewOptionAfterStartDelivery = async (req, res) => {
+  const option = req.body.option;
+  const orderId = req.body.orderId;
+  let latitude = req.body.latitude;
+  let longitude = req.body.longitude;
+  let stepType;
+  let acceptedStatus = ["SCANNED_IN", "MANUALLY_CONFIRMED"];
+  let currentDate = moment(new Date()).format("MM/dd h:mm a");
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const order = await Orders.findOne({ order_id: orderId });
+    if (option == 1) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
+          box.status.type = "RETURNED";
+          box.status.description =
+            "Box returned to the store. The driver's reason: No Payment";
+          box.status.driver_id = req.user.userId;
+        }
+      });
+      order.visited = 1;
+      order.returned = 1;
+      order.driver_notes = `${order.driver_notes}  Due to non payment received at ${currentDate} - ${user.first_name} returned order to store`;
+      order.save();
+      let stepString = `"Driver returning ${order.street_address} ${order.fname} due to no payment`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    } else if (option == 2) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
+          box.status.type = "RETURNED";
+          box.status.description =
+            "Box returned to the store. The driver's reason: Nobody Home";
+          box.status.driver_id = req.user.userId;
+        }
+      });
+      order.visited = 1;
+      order.returned = 1;
+      order.driver_notes = `${order.driver_notes} Nobody was home at ${currentDate} - ${user.first_name} returned order to store`;
+      order.save();
+      let stepString = `"Driver returning ${order.street_address} ${order.fname} due to nobody home`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    }
+    res
+      .status(200)
+      .send({ status: langObj.success_status_text, statusCode: 200 });
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
 exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
   let mapRoute = req.body.mapRoute ?? false;
   let unVisitedOrdersExist = req.body.unVisitedOrders ?? false;
@@ -1035,95 +1152,39 @@ exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
     if (mapRoute && unVisitedOrdersExist && store.sms_on_route_start) {
       var config = {
         method: "get",
-        url: `https://barcoder-cyf.herokuapp.com/public/nexmo_sms_route_start?store_id=${user.store_id}&route_started=${originalRouteStarted}`
+        url: `https://barcoder-cyf.herokuapp.com/public/nexmo_sms_route_start?store_id=${user.store_id}&route_started=${originalRouteStarted}`,
       };
       axios(config)
-            .then(function (response) {
-              console.log(JSON.stringify(response.data));
-              res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done"})
-            })
-            .catch(function (error) {
-              console.log(error);
-              res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+        .then(function (response) {
+          console.log(JSON.stringify(response.data));
+          res
+            .status(200)
+            .send({
+              status: langObj.success_status_text,
+              statusCode: 200,
+              message: "done",
             });
+        })
+        .catch(function (error) {
+          console.log(error);
+          res
+            .status(500)
+            .send({
+              status: langObj.failed_status_text,
+              statusCode: 500,
+              error: error,
+            });
+        });
     }
   } catch (err) {
-    res.status(400).send({status:failedStatus,statusCode:400,error:err})
-
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 
 exports.notifyManagerUserReturn = async (req, res) => {
   let originalRouteStarted = req.body.originalRouteStarted;
   let etaForStore = req.body.etaForStore;
-  let justDeliveredAddress = req.body.justDeliveredAddress
-  try {
-    const user = await User.findOne({ _id: req.user.userId });
-    const language = await Language.findOne({ language_id: user.Language });
-    const langObj = JSON.parse(language.language_translation);
-    failedStatus = langObj.failed_status_text;
-    let store = await findData(
-      Store,
-      { store_id: user.store_id },
-      {
-        show_yesterdays_orders_too: "show_yesterdays_orders_too",
-        store_name: "store_name",
-        sms_on_route_start: "sms_on_route_start",
-        manager_phone: "manager_phone",
-        manager_phone2: "manager_phone2",
-        store_id: "store_id"
-      }
-    );
-    store.sms_on_route_start = store.sms_on_route_start ?? 1;
-    store.manager_phone = store.manager_phone ?? ""
-    store.manager_phone2 = store.manager_phone2 ?? "0"
-    var config = {
-      method: "get",
-      url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_return?eta_back=${etaForStore}&driver_name=${user.first_name}&manager_phone=${store.manager_phone}&last_stop=${justDeliveredAddress}&route_started=${originalRouteStarted}&store_id=${store.store_id}`
-    };
-    axios(config)
-          .then(function (response) {
-            console.log(JSON.stringify(response.data));
-            console.log("pass");
-            
-          })
-          .catch(function (error) {
-            console.log("failed1");
-
-            console.log(error);
-            return res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
-          });
-          console.log("reached");
-          setTimeout(() => {
-            if(store.manager_phone2 == "0") {
-              console.log("reached2");
-              return res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done1"})
-            } else {
-              var config = {
-                method: "get",
-                url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_return?eta_back=${etaForStore}&driver_name=${user.first_name}&manager_phone=${store.manager_phone2}&last_stop=${justDeliveredAddress}&route_started=${originalRouteStarted}&store_id=${store.store_id}`
-              };
-              axios(config)
-                    .then(function (response) {
-                      console.log(JSON.stringify(response.data));
-                      console.log("pass2");
-                      res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done"})
-                    })
-                    .catch(function (error) {
-                      console.log("failed2");
-                      console.log(error);
-                      res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
-                    });
-            }
-           
-          }, 2000);
-         
-  } catch (err) {
-    res.status(400).send({status:failedStatus,statusCode:400,error:err})
-  }
-}
-
-exports.notifyDriverDoodleTime = async(req, res) => {
+  let justDeliveredAddress = req.body.justDeliveredAddress;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
@@ -1139,7 +1200,95 @@ exports.notifyDriverDoodleTime = async(req, res) => {
         manager_phone: "manager_phone",
         manager_phone2: "manager_phone2",
         store_id: "store_id",
-        nexmo_num: "nexmo_num"
+      }
+    );
+    store.sms_on_route_start = store.sms_on_route_start ?? 1;
+    store.manager_phone = store.manager_phone ?? "";
+    store.manager_phone2 = store.manager_phone2 ?? "0";
+    var config = {
+      method: "get",
+      url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_return?eta_back=${etaForStore}&driver_name=${user.first_name}&manager_phone=${store.manager_phone}&last_stop=${justDeliveredAddress}&route_started=${originalRouteStarted}&store_id=${store.store_id}`,
+    };
+    axios(config)
+      .then(function (response) {
+        console.log(JSON.stringify(response.data));
+        console.log("pass");
+      })
+      .catch(function (error) {
+        console.log("failed1");
+
+        console.log(error);
+        return res
+          .status(500)
+          .send({
+            status: langObj.failed_status_text,
+            statusCode: 500,
+            error: error,
+          });
+      });
+    console.log("reached");
+    setTimeout(() => {
+      if (store.manager_phone2 == "0") {
+        console.log("reached2");
+        return res
+          .status(200)
+          .send({
+            status: langObj.success_status_text,
+            statusCode: 200,
+            message: "done1",
+          });
+      } else {
+        var config = {
+          method: "get",
+          url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_return?eta_back=${etaForStore}&driver_name=${user.first_name}&manager_phone=${store.manager_phone2}&last_stop=${justDeliveredAddress}&route_started=${originalRouteStarted}&store_id=${store.store_id}`,
+        };
+        axios(config)
+          .then(function (response) {
+            console.log(JSON.stringify(response.data));
+            console.log("pass2");
+            res
+              .status(200)
+              .send({
+                status: langObj.success_status_text,
+                statusCode: 200,
+                message: "done",
+              });
+          })
+          .catch(function (error) {
+            console.log("failed2");
+            console.log(error);
+            res
+              .status(500)
+              .send({
+                status: langObj.failed_status_text,
+                statusCode: 500,
+                error: error,
+              });
+          });
+      }
+    }, 2000);
+  } catch (err) {
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
+
+exports.notifyDriverDoodleTime = async (req, res) => {
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    let store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        store_name: "store_name",
+        sms_on_route_start: "sms_on_route_start",
+        manager_phone: "manager_phone",
+        manager_phone2: "manager_phone2",
+        store_id: "store_id",
+        nexmo_num: "nexmo_num",
       }
     );
     store.sms_on_route_start = store.sms_on_route_start ?? 1;
@@ -1148,49 +1297,70 @@ exports.notifyDriverDoodleTime = async(req, res) => {
     store.manager_phone2 = store.manager_phone2 ?? "0";
     var config = {
       method: "get",
-      url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_doodle?from=${store.nexmo_num}&driver_name=${user.first_name}&manager_phone=${store.manager_phone}`
+      url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_doodle?from=${store.nexmo_num}&driver_name=${user.first_name}&manager_phone=${store.manager_phone}`,
     };
     axios(config)
+      .then(function (response) {
+        console.log(JSON.stringify(response.data));
+        console.log("pass");
+      })
+      .catch(function (error) {
+        console.log("failed1");
+
+        console.log(error);
+        return res
+          .status(500)
+          .send({
+            status: langObj.failed_status_text,
+            statusCode: 500,
+            error: error,
+          });
+      });
+    console.log("reached");
+    setTimeout(() => {
+      if (store.manager_phone2 == "0") {
+        console.log("reached2");
+        return res
+          .status(200)
+          .send({
+            status: langObj.success_status_text,
+            statusCode: 200,
+            message: "done1",
+          });
+      } else {
+        var config = {
+          method: "get",
+          url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_doodle?from=${store.nexmo_num}&driver_name=${user.first_name}&manager_phone=${store.manager_phone2}`,
+        };
+        axios(config)
           .then(function (response) {
             console.log(JSON.stringify(response.data));
-            console.log("pass");
-            
+            console.log("pass2");
+            res
+              .status(200)
+              .send({
+                status: langObj.success_status_text,
+                statusCode: 200,
+                message: "done",
+              });
           })
           .catch(function (error) {
-            console.log("failed1");
-
+            console.log("failed2");
             console.log(error);
-            return res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
+            res
+              .status(500)
+              .send({
+                status: langObj.failed_status_text,
+                statusCode: 500,
+                error: error,
+              });
           });
-          console.log("reached");
-          setTimeout(() => {
-            if(store.manager_phone2 == "0") {
-              console.log("reached2");
-              return res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done1"})
-            } else {
-              var config = {
-                method: "get",
-                url: `https://barcoder-cyf.herokuapp.com/public/nexmo_driver_doodle?from=${store.nexmo_num}&driver_name=${user.first_name}&manager_phone=${store.manager_phone2}`
-              };
-              axios(config)
-                    .then(function (response) {
-                      console.log(JSON.stringify(response.data));
-                      console.log("pass2");
-                      res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"done"})
-                    })
-                    .catch(function (error) {
-                      console.log("failed2");
-                      console.log(error);
-                      res.status(500).send({status:langObj.failed_status_text,statusCode:500,error:error})
-                    });
-            }
-           
-          }, 2000);
-         
+      }
+    }, 2000);
   } catch (err) {
-    res.status(400).send({status:failedStatus,statusCode:400,error:err})
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
-}
+};
 // exports.startDelivery = async (req, res) => {
 //   let {
 //     startLatitude,

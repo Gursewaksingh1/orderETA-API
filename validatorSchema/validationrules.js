@@ -406,6 +406,14 @@ let validateLanguage = () => {
   ];
 }
 
+let returnOrder = () => {
+  return [
+    body("option").notEmpty().isNumeric().withMessage("option key should be number and not empty"),
+    body("orderId").notEmpty().withMessage("orderId should not be empty"),
+    body("latitude").notEmpty().withMessage("latitude should not be empty"),
+    body("longitude").notEmpty().withMessage("longitude should not be empty"),
+  ]
+}
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
@@ -422,5 +430,6 @@ module.exports = {
   validateLanguage,
   validate_reason_for_manully_confirm_order,
   smsManagerValidation,
-  notifyManagerUserReturnValidation
+  notifyManagerUserReturnValidation,
+  returnOrder
 };
