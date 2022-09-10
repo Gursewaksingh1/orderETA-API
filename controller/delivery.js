@@ -410,11 +410,12 @@ exports.updateOrders = async (req, res) => {
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
     const orderNo = await Orders.find({
+      store_id:user.store_id,
       order_id: { $in: orderIds },
       visited: { $ne: 1 },
     }).countDocuments();
 
-    const orders = await Orders.find({ order_id: { $in: orderIds } });
+    const orders = await Orders.find({ store_id:user.store_id,order_id: { $in: orderIds } });
 
     let presortedOrder = orders.map((order) => {
       return order.presorted == 1;
@@ -422,7 +423,7 @@ exports.updateOrders = async (req, res) => {
     orders.forEach((order, index) => {
       order.user_id = req.user.user_id;
       order.driver_string = user.driver_string;
-
+      order.deleted_from_device = 0;
       if (orderNo == 0) {
         let original_route_started = moment(new Date()).format(
           "yyyy-MM-dd-HH:mm:ss"
@@ -431,12 +432,13 @@ exports.updateOrders = async (req, res) => {
         if (presortedOrder.length !== 0) {
           order.sequence = index + 1;
         }
-        if (
-          order.boxes_scanned_in != order.total_boxes &&
-          user.orders_entry_method == 1
-        ) {
-          order.has_problem = 1;
-        }
+       
+      }
+      if (
+        order.boxes_scanned_in != order.total_boxes &&
+        user.orders_entry_method == 1
+      ) {
+        order.has_problem = 1;
       }
       order.save();
     });
@@ -492,11 +494,12 @@ exports.updateUser = async (req, res) => {
   const orderId = req.body.orderId;
   let timeStamp = moment(new Date()).format("h:mm:ss a");
   try {
-    const order = await findOne({ order_id: orderId });
+    const order = await findOne({ store_id: user.store_id, order_id: orderId });
     const user = await User.findOne({ _id: userId });
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
+
     user.last_location = [longitude, latitude];
     user.is_delivering = isDelivering;
     user.total_addresses_in_run = total_addresses_in_run;
@@ -506,14 +509,17 @@ exports.updateUser = async (req, res) => {
       user.original_route_started = original_route_started || null;
       user.started_driving = original_route_started || null;
     }
+
+
     user.addresses_yet_to_visit = addresses_yet_to_visit;
     if (order) {
       user.latest_action = `Was directed to drive to ${order.fname} at ${timeStamp}`;
       user.next_stop = `${order.fname} at ${order.street_address}`;
     } else {
       user.latest_action = `Was directed to drive back to store at ${timeStamp}`;
-      user.next_stop = "When left his last stop ETA to store was";
+      user.next_stop = "When left his last stop ETA to store was "+etaDateForParse;
     }
+    user.eta_to_store = etaDateForParse;
     user.save();
     res.status(200).send({
       status: langObj.success_status_text,
@@ -650,7 +656,7 @@ exports.cancelRoute = async (req, res) => {
         });
       } else if (option == 2 || option == 3) {
         await Orders.updateMany(
-          { order_id: { $in: orderIds } },
+          { store_id: user.store_id, order_id: { $in: orderIds } },
           {
             $set: {
               driver_string: user.driver_string,
@@ -699,7 +705,10 @@ exports.cancelRoute = async (req, res) => {
         contentText =
           "Admin can let you mark all as delivered but only by typing password:";
       }
-      let orders = await Orders.find({ order_id: { $in: orderIds } });
+      let orders = await Orders.find({
+        store_id: user.store_id,
+        order_id: { $in: orderIds },
+      });
       if (option == 1 || option == 2) {
         if (store.sensitive_actions_require_pass == 1) {
           if (!password) {
@@ -900,11 +909,17 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
           if (!barcodeFormats[index].storeid_available) {
             components.unshift(store.store_id);
           }
+          if (!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
+          }
         } else {
           components = rawData.split(splitWith[index]);
           //checking if barcode which matched with regex has stodeId in format or not if not then add
           if (!barcodeFormats[index].storeid_available) {
             components.unshift(store.store_id);
+          }
+          if (!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
           }
         }
         break;
@@ -1090,7 +1105,10 @@ exports.tableViewOptionAfterStartDelivery = async (req, res) => {
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
-    const order = await Orders.findOne({ order_id: orderId });
+    const order = await Orders.findOne({
+      store_id: user.store_id,
+      order_id: orderId,
+    });
     if (option == 1) {
       order.boxes.forEach((box) => {
         if (acceptedStatus.includes(box.status.type)) {
@@ -1130,6 +1148,87 @@ exports.tableViewOptionAfterStartDelivery = async (req, res) => {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
+
+exports.cancelOrdeAtCustomerPage = async (req, res) => {
+  const option = req.body.option;
+  const orderId = req.body.orderId;
+  let latitude = req.body.latitude;
+  let longitude = req.body.longitude;
+  let stepType;
+  let currentDate = moment(new Date()).format("MM/dd h:mm a");
+  let acceptedStatus = [
+    "SCANNED_IN",
+    "MANUALLY_CONFIRMED",
+    "CURRENT_SCANNED_OUT",
+    "CURRENT_MANUALLY_SCANNED_OUT",
+    "CURRENT_MANUALLY_DELIVERED",
+    "CURRENT_NOT_SCANNED_OUT",
+    "CURRENT_NOT_DELIVERED",
+  ];
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const order = await Orders.findOne({
+      store_id: user.store_id,
+      order_id: orderId,
+    });
+    if(!order) {
+      res.status(404).send({status:langObj.failed_status_text,statusCode:404,error:langObj.invalid_order_id_text})
+    }
+    if (option == 1) {
+      order.boxes.forEach(box => {
+        if(acceptedStatus.includes(box.status.type)) {
+          box.status.type = "RETURNED";
+          box.status.description = "Box is returned to the store. The driver's reason: Nobody Home";
+          box.status.driver_id = req.user.userId;
+        }
+      })
+      order.visited = 1;
+      order.returned = 1; 
+      order.eta = new Date();
+      order.driver_notes = `Nobody home at ${currentDate} - returning order to store`
+      order.save();
+      let stepString = `returning ${order.fname} ${order.street_address}  order to store because nobody was home to receive delivery`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    } else if(option == 2) {
+      order.boxes.forEach(box => {
+        if(acceptedStatus.includes(box.status.type)) {
+          box.status.type = "RETURNED";
+          box.status.description = "Box is returned to the store. The driver's reason: No Payment";
+          box.status.driver_id = req.user.userId;
+        }
+      })
+      order.visited = 1;
+      order.returned = 1; 
+      order.eta = new Date();
+      order.driver_notes = `Due to no payment received at ${currentDate} - returning order to store`
+      order.save();
+      let stepString = `returning ${order.fname} ${order.street_address}  order to store because of non-payment of COD`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    } else if (option == 3) {
+      order.boxes.forEach(box => {
+        if(acceptedStatus.includes(box.status.type)) {
+          box.status.type = "NOT_DELIVERED";
+          box.status.description = "Driver saved order for future delivery.";
+          box.status.driver_id = req.user.userId;
+        }
+      })
+      order.visited = 1;
+      order.returned = 1; 
+      order.eta = new Date();
+      order.driver_notes = `Driver marked this order as "Deliver Later" at ${currentDate}`
+      order.save();
+      let stepString = `Driver marked this order as "Deliver Later" at ${currentDate}`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    }
+    res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"order has been cancelled"})
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err }); 
+  }
+};
 exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
   let mapRoute = req.body.mapRoute ?? false;
   let unVisitedOrdersExist = req.body.unVisitedOrders ?? false;
@@ -1157,23 +1256,19 @@ exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
       axios(config)
         .then(function (response) {
           console.log(JSON.stringify(response.data));
-          res
-            .status(200)
-            .send({
-              status: langObj.success_status_text,
-              statusCode: 200,
-              message: "done",
-            });
+          res.status(200).send({
+            status: langObj.success_status_text,
+            statusCode: 200,
+            message: "done",
+          });
         })
         .catch(function (error) {
           console.log(error);
-          res
-            .status(500)
-            .send({
-              status: langObj.failed_status_text,
-              statusCode: 500,
-              error: error,
-            });
+          res.status(500).send({
+            status: langObj.failed_status_text,
+            statusCode: 500,
+            error: error,
+          });
         });
     }
   } catch (err) {
@@ -1218,25 +1313,21 @@ exports.notifyManagerUserReturn = async (req, res) => {
         console.log("failed1");
 
         console.log(error);
-        return res
-          .status(500)
-          .send({
-            status: langObj.failed_status_text,
-            statusCode: 500,
-            error: error,
-          });
+        return res.status(500).send({
+          status: langObj.failed_status_text,
+          statusCode: 500,
+          error: error,
+        });
       });
     console.log("reached");
     setTimeout(() => {
       if (store.manager_phone2 == "0") {
         console.log("reached2");
-        return res
-          .status(200)
-          .send({
-            status: langObj.success_status_text,
-            statusCode: 200,
-            message: "done1",
-          });
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: "done1",
+        });
       } else {
         var config = {
           method: "get",
@@ -1246,24 +1337,20 @@ exports.notifyManagerUserReturn = async (req, res) => {
           .then(function (response) {
             console.log(JSON.stringify(response.data));
             console.log("pass2");
-            res
-              .status(200)
-              .send({
-                status: langObj.success_status_text,
-                statusCode: 200,
-                message: "done",
-              });
+            res.status(200).send({
+              status: langObj.success_status_text,
+              statusCode: 200,
+              message: "done",
+            });
           })
           .catch(function (error) {
             console.log("failed2");
             console.log(error);
-            res
-              .status(500)
-              .send({
-                status: langObj.failed_status_text,
-                statusCode: 500,
-                error: error,
-              });
+            res.status(500).send({
+              status: langObj.failed_status_text,
+              statusCode: 500,
+              error: error,
+            });
           });
       }
     }, 2000);
@@ -1308,25 +1395,21 @@ exports.notifyDriverDoodleTime = async (req, res) => {
         console.log("failed1");
 
         console.log(error);
-        return res
-          .status(500)
-          .send({
-            status: langObj.failed_status_text,
-            statusCode: 500,
-            error: error,
-          });
+        return res.status(500).send({
+          status: langObj.failed_status_text,
+          statusCode: 500,
+          error: error,
+        });
       });
     console.log("reached");
     setTimeout(() => {
       if (store.manager_phone2 == "0") {
         console.log("reached2");
-        return res
-          .status(200)
-          .send({
-            status: langObj.success_status_text,
-            statusCode: 200,
-            message: "done1",
-          });
+        return res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          message: "done1",
+        });
       } else {
         var config = {
           method: "get",
@@ -1336,24 +1419,20 @@ exports.notifyDriverDoodleTime = async (req, res) => {
           .then(function (response) {
             console.log(JSON.stringify(response.data));
             console.log("pass2");
-            res
-              .status(200)
-              .send({
-                status: langObj.success_status_text,
-                statusCode: 200,
-                message: "done",
-              });
+            res.status(200).send({
+              status: langObj.success_status_text,
+              statusCode: 200,
+              message: "done",
+            });
           })
           .catch(function (error) {
             console.log("failed2");
             console.log(error);
-            res
-              .status(500)
-              .send({
-                status: langObj.failed_status_text,
-                statusCode: 500,
-                error: error,
-              });
+            res.status(500).send({
+              status: langObj.failed_status_text,
+              statusCode: 500,
+              error: error,
+            });
           });
       }
     }, 2000);

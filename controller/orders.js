@@ -965,17 +965,22 @@ exports.scanOrderBox = async (req, res) => {
           if (!barcodeFormats[index].storeid_available) {
             components.unshift(store.store_id);
           }
+          if(!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
+          }
         } else {
           components = rawData.split(splitWith[index]);
           //checking if barcode which matched with regex has stodeId in format or not if not then add
           if (!barcodeFormats[index].storeid_available) {
             components.unshift(store.store_id);
           }
+          if(!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
+          }
         }
         break;
       }
     }
-
     // switch (store.barcode_type) {
     //   case "RDT":
     //     components = [];
@@ -1108,17 +1113,46 @@ exports.scanOrderBox = async (req, res) => {
         });
       }
     }
+    let order;
+if(store.searchby_sub != 1) {
+  console.log("reached");
+  storeId = components[0];
+  orderId = components[1];
+  boxNumber = parseInt(components[2]);
+   order = await Orders.findOne({
+    store_id: storeId,
+    order_id: orderId,
+  });
 
-
+} else if(store.searchby_sub == 1) {
+   order = await Orders.findOne({  store_id: storeId,items:{$regex : components[1]}});
+   console.log(order);
+    if(order) {
+      order.items.forEach((item,index) => {
+        if(item == components[1]) {
+          orderId = order.order_id;
+          boxNumber = index + 1;
+        }
+      }) 
+    } else {
       storeId = components[0];
       orderId = components[1];
-      const order = await Orders.findOne({
+      boxNumber = parseInt(components[2]);
+       order = await Orders.findOne({
         store_id: storeId,
         order_id: orderId,
       });
+    }
+}
+      // storeId = components[0];
+      // orderId = components[1];
+      //  order = await Orders.findOne({
+      //   store_id: storeId,
+      //   order_id: orderId,
+      // });
    
    
-    boxNumber = parseInt(components[2]);
+ 
 
     //fetching order
     

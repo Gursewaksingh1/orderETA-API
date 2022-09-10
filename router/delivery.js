@@ -38,6 +38,13 @@ router.post(
   deliveryController.tableViewOptionAfterStartDelivery
 );
 router.post(
+  "/cancelorder",
+  isAuth,
+  returnOrder(),
+  validate,
+  deliveryController.cancelOrdeAtCustomerPage
+);
+router.post(
   "/notifymanager",
   isAuth,
   notifyManagerUserReturnValidation(),
