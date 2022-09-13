@@ -362,32 +362,38 @@ exports.confirmBoxAtStartDelivery = async (req, res) => {
     unConfirmReason = req.body.unConfirmReason ?? undefined;
   let orderId = req.body.orderId;
   let boxNo = req.body.boxNo;
+  boxNo = parseInt(boxNo)
+  let flag = false;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
     const order = await Orders.findOne({ order_id: orderId });
-    if (order.boxes[boxNo] != undefined) {
-      if (confirmReason) {
-        order.boxes[boxNo].status.type = "MANUALLY_CONFIRMED";
-        order.boxes[boxNo].status.driver_id = req.user.userId;
-        order.boxes[boxNo].status.description =
-          "Box is manually confirmed. The driver's reason: " + confirmReason;
-      } else if (unConfirmReason) {
-        order.boxes[boxNo].status.type = "NOT_CONFIRMED";
-        order.boxes[boxNo].status.driver_id = req.user.userId;
-        order.boxes[boxNo].status.description =
-          "Driver didn't take the box. The driver's reason: " + unConfirmReason;
+    order.boxes.forEach(box => {
+      if(box.number == boxNo ) {
+        flag = true;
+        if (confirmReason) {
+          box.status.type = "MANUALLY_CONFIRMED";
+          box.status.driver_id = req.user.userId;
+          box.status.description =
+            "Box is manually confirmed. The driver's reason: " + confirmReason;
+        } else if (unConfirmReason) {
+          box.status.type = "NOT_CONFIRMED";
+          box.status.driver_id = req.user.userId;
+          box.status.description =
+            "Driver didn't take the box. The driver's reason: " + unConfirmReason;
+        }
+        order.boxes_scanned_in = order.boxes_scanned_in + 1 ?? 1;
+        order.save();
+        res.status(200).send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          data: order,
+        });
       }
-      order.boxes_scanned_in = order.boxes_scanned_in + 1 ?? 1;
-      order.save();
-      res.status(200).send({
-        status: langObj.success_status_text,
-        statusCode: 200,
-        data: order,
-      });
-    } else {
+    })
+    if (!flag) {
       res.status(404).send({
         status: langObj.failed_status_text,
         statusCode: 404,
@@ -1030,6 +1036,7 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
           return res.status(200).send({
             status: langObj.success_status_text,
             statusCode: 200,
+            box_number:boxNo,
             data: order,
           });
         }
@@ -1047,6 +1054,7 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
           return res.status(200).send({
             status: langObj.success_status_text,
             statusCode: 200,
+            box_number:boxNo,
             data: order,
           });
         }
@@ -1063,6 +1071,125 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
         },
       });
     }
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
+/**
+ *   @swagger
+ *   components:
+ *   schemas:
+ *     table_view_options:
+ *       type: object
+ *       required:
+ *         - option
+ *       properties:
+ *         option:
+ *           type: number
+ *           description: please enter of option yu have selected
+ *         latitude:
+ *           type: boolean
+ *           description: latitude of user location
+ *         longitude:
+ *           type: boolean
+ *           description: longitude of user location
+ *         orderId:
+ *           type: string
+ *           description: order id of selected order
+ *       example:
+ *           latitude: 30
+ *           longitude: 40
+ *           option: 1
+ *           orderId: "99574783430"
+ */
+/**
+ * @swagger
+ * /delivery/returnorder:
+ *   post:
+ *     summary: this api is used when driver will take order back due to some reason
+ *     tags: [delivery]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/table_view_options'
+ *     responses:
+ *       200:
+ *         description: Returns new token for authorization
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       422:
+ *         description: validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       403:
+ *         description: token error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *     security:
+ *       - bearerAuth: []
+ */
+
+ exports.tableViewOptionAfterStartDelivery = async (req, res) => {
+  const option = req.body.option;
+  const orderId = req.body.orderId;
+  let latitude = req.body.latitude;
+  let longitude = req.body.longitude;
+  let stepType;
+  let acceptedStatus = ["SCANNED_IN", "MANUALLY_CONFIRMED"];
+  let currentDate = moment(new Date()).format("MM/dd h:mm a");
+  let failedStatus;
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const order = await Orders.findOne({
+      store_id: user.store_id,
+      order_id: orderId,
+    });
+    if (option == 1) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
+          box.status.type = "RETURNED";
+          box.status.description =
+            "Box returned to the store. The driver's reason: No Payment";
+          box.status.driver_id = req.user.userId;
+        }
+      });
+      order.visited = 1;
+      order.returned = 1;
+      order.driver_notes = `${order.driver_notes}  Due to non payment received at ${currentDate} - ${user.first_name} returned order to store`;
+      order.save();
+      let stepString = `"Driver returning ${order.street_address} ${order.fname} due to no payment`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    } else if (option == 2) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
+          box.status.type = "RETURNED";
+          box.status.description =
+            "Box returned to the store. The driver's reason: Nobody Home";
+          box.status.driver_id = req.user.userId;
+        }
+      });
+      order.visited = 1;
+      order.returned = 1;
+      order.driver_notes = `${order.driver_notes} Nobody was home at ${currentDate} - ${user.first_name} returned order to store`;
+      order.save();
+      let stepString = `"Driver returning ${order.street_address} ${order.fname} due to nobody home`;
+      driverSteps(stepType, stepString, user, longitude, latitude);
+    }
+    res
+      .status(200)
+      .send({ status: langObj.success_status_text, statusCode: 200 });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
@@ -1379,124 +1506,52 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
-/**
- *   @swagger
- *   components:
- *   schemas:
- *     table_view_options:
- *       type: object
- *       required:
- *         - option
- *       properties:
- *         option:
- *           type: number
- *           description: please enter of option yu have selected
- *         latitude:
- *           type: boolean
- *           description: latitude of user location
- *         longitude:
- *           type: boolean
- *           description: longitude of user location
- *         orderId:
- *           type: string
- *           description: order id of selected order
- *       example:
- *           latitude: 30
- *           longitude: 40
- *           option: 1
- *           orderId: "99574783430"
- */
-/**
- * @swagger
- * /delivery/returnorder:
- *   post:
- *     summary: this api is used when driver will take order back due to some reason
- *     tags: [delivery]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/table_view_options'
- *     responses:
- *       200:
- *         description: Returns new token for authorization
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *       422:
- *         description: validation error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *       403:
- *         description: token error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *     security:
- *       - bearerAuth: []
- */
 
-exports.tableViewOptionAfterStartDelivery = async (req, res) => {
-  const option = req.body.option;
-  const orderId = req.body.orderId;
+exports.customerPage = async(req, res) => {
+  let boxNo = req.body.boxNumber;
   let latitude = req.body.latitude;
   let longitude = req.body.longitude;
+  let orderId = req.body.orderId;
+  let failedStatus;
   let stepType;
-  let acceptedStatus = ["SCANNED_IN", "MANUALLY_CONFIRMED"];
-  let currentDate = moment(new Date()).format("MM/dd h:mm a");
+  let currentDate = moment(new Date()).format("h:mm a");
+  let currentConfirmedBoxes = 0;
+  let currentConfirmedAcceptedStatus = ["CURRENT_SCANNED_OUT", "CURRENT_MANUALLY_SCANNED_OUT", "CURRENT_MANUALLY_DELIVERED", "CURRENT_NOT_SCANNED_OUT", "CURRENT_NOT_DELIVERED","SCANNED_OUT","MANUALLY_SCANNED_OUT","MANUALLY_DELIVERED"]
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
-    const order = await Orders.findOne({
-      store_id: user.store_id,
-      order_id: orderId,
-    });
-    if (option == 1) {
-      order.boxes.forEach((box) => {
-        if (acceptedStatus.includes(box.status.type)) {
-          box.status.type = "RETURNED";
-          box.status.description =
-            "Box returned to the store. The driver's reason: No Payment";
-          box.status.driver_id = req.user.userId;
-        }
-      });
-      order.visited = 1;
-      order.returned = 1;
-      order.driver_notes = `${order.driver_notes}  Due to non payment received at ${currentDate} - ${user.first_name} returned order to store`;
-      order.save();
-      let stepString = `"Driver returning ${order.street_address} ${order.fname} due to no payment`;
+    let order = await Orders.findOne({store_id:user.store_id,order_id:orderId});
+    user.is_delivering = "1";
+    user.latest_action = `Delivering to ${order.fname} ${order.street_address} at ${currentDate}`;
+    user.last_location = [latitude,longitude];
+    user.save();
+    if(boxNo != 0) {
+      stepString = `Scanned Box Number: ${boxNo ?? 0} to start dropoff procedure for ${order.fname ?? ""} ${order.street_address}`
       driverSteps(stepType, stepString, user, longitude, latitude);
-    } else if (option == 2) {
-      order.boxes.forEach((box) => {
-        if (acceptedStatus.includes(box.status.type)) {
-          box.status.type = "RETURNED";
-          box.status.description =
-            "Box returned to the store. The driver's reason: Nobody Home";
-          box.status.driver_id = req.user.userId;
-        }
-      });
-      order.visited = 1;
-      order.returned = 1;
-      order.driver_notes = `${order.driver_notes} Nobody was home at ${currentDate} - ${user.first_name} returned order to store`;
-      order.save();
-      let stepString = `"Driver returning ${order.street_address} ${order.fname} due to nobody home`;
+    } else {
+      stepString = `Swiped to start dropoff procedure for ${order.fname ?? ""} ${order.street_address}`
       driverSteps(stepType, stepString, user, longitude, latitude);
     }
-    res
-      .status(200)
-      .send({ status: langObj.success_status_text, statusCode: 200 });
+    if(order.boxes[boxNo]) {
+      order.boxes[boxNo].status.type = "CURRENT_SCANNED_OUT";
+      order.boxes[boxNo].status.description = "Box is already scanned out and delivered to the customer.";
+      order.boxes[boxNo].status.driver_id = req.user.userId;
+    order.save();
+    }
+    order.boxes.forEach(box => {
+      if(currentConfirmedAcceptedStatus.includes(box.status.type)) {
+        currentConfirmedBoxes++
+      }
+    });
+    leftCalculation = (order.total_boxes ?? 1)- (currentConfirmedBoxes ?? 0)
+    res.status(200).send({status:langObj.success_status_text,statusCode:200,data: order});
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
-};
+}
 
 exports.cancelOrdeAtCustomerPage = async (req, res) => {
   const option = req.body.option;
@@ -1504,6 +1559,7 @@ exports.cancelOrdeAtCustomerPage = async (req, res) => {
   let latitude = req.body.latitude;
   let longitude = req.body.longitude;
   let stepType;
+  let failedStatus;
   let currentDate = moment(new Date()).format("MM/dd h:mm a");
   let acceptedStatus = [
     "SCANNED_IN",
@@ -1592,6 +1648,7 @@ exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
   let mapRoute = req.body.mapRoute ?? false;
   let unVisitedOrdersExist = req.body.unVisitedOrders ?? false;
   let originalRouteStarted = req.body.originalRouteStarted;
+  let failedStatus;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
@@ -1639,6 +1696,7 @@ exports.notifyManagerUserReturn = async (req, res) => {
   let originalRouteStarted = req.body.originalRouteStarted;
   let etaForStore = req.body.etaForStore;
   let justDeliveredAddress = req.body.justDeliveredAddress;
+  let failedStatus;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
@@ -1719,6 +1777,7 @@ exports.notifyManagerUserReturn = async (req, res) => {
 };
 
 exports.notifyDriverDoodleTime = async (req, res) => {
+  let failedStatus;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
