@@ -881,63 +881,134 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
-    //getting barcode format from db
-    var barcodeFormats = await BarcodeFormat.find();
-    barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
-    // console.log({barcodeFormats});
-
-    var barcodeFormatBUCH = {};
-    //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
-    barcodeFormats.forEach((barcodeFormat, i) => {
-      if (barcodeFormat.barcode_type == "BUC") {
-        barcodeFormatBUCH = barcodeFormat;
-      }
-    });
-    //then remove BUCH record from arr
-    barcodeFormats.forEach((barcodeFormat, i) => {
-      if (barcodeFormat.barcode_type == "BUC") {
-        barcodeFormats.splice(i, i);
-      }
-    });
-
-    //now push it to the array
-    barcodeFormats.push(barcodeFormatBUCH);
-    //adding values in splitWith & regex_arr & getting from barcode_format collection
-    splitWith = barcodeFormats.map((value) => value.split_with);
-    // regex_arr = barcodeFormats.map((value) => value.regexformat);
-    // for (index = 0; index < regex_arr.length; index++) {
-    //   if (rawData.match(regex_arr[index]) !== null) {
-    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
-
-    //looping over regex_arr arr and comparing rawData with regex
-    for (index = 0; index < barcode_arr.length; index++) {
-      if (store.barcode_type == barcode_arr[index]) {
-        //coomparing regex with barcode
-        if (!isNaN(splitWith[index])) {
-          buchbarcode = rawData.slice(0, -splitWith[index]);
-          components.push(buchbarcode);
-          components.push(rawData.substring(rawData.length - splitWith[index]));
-          //checking if barcode which matched with regex has stodeId in format or not if not then add
-          if (!barcodeFormats[index].storeid_available) {
-            components.unshift(store.store_id);
-          }
-          if (!barcodeFormats[index].boxno_avaiable) {
-            components.push("01");
-          }
-        } else {
-          components = rawData.split(splitWith[index]);
-          //checking if barcode which matched with regex has stodeId in format or not if not then add
-          if (!barcodeFormats[index].storeid_available) {
-            components.unshift(store.store_id);
-          }
-          if (!barcodeFormats[index].boxno_avaiable) {
-            components.push("01");
-          }
-        }
-        barcodeMatched = true;
-        break;
-      }
-    }
+     //getting barcode format from db
+     var barcodeFormats = await BarcodeFormat.find();
+     barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
+     // console.log({barcodeFormats});
+ 
+     var barcodeFormatBUCH = {};
+     //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
+     barcodeFormats.forEach((barcodeFormat, i) => {
+       if (barcodeFormat.barcode_type == "BUC") {
+         barcodeFormatBUCH = barcodeFormat;
+       }
+     });
+     //then remove BUCH record from arr
+     barcodeFormats.forEach((barcodeFormat, i) => {
+       if (barcodeFormat.barcode_type == "BUC") {
+         barcodeFormats.splice(i, i);
+       }
+     });
+ 
+     //now push it to the array
+     barcodeFormats.push(barcodeFormatBUCH);
+     //adding values in splitWith & regex_arr & getting from barcode_format collection
+     splitWith = barcodeFormats.map((value) => value.split_with);
+     regex_arr = barcodeFormats.map((value) => value.regexformat);
+     barcode_arr = barcodeFormats.map((value) => value.barcode_type);
+     // for (index = 0; index < regex_arr.length; index++) {
+     //   if (rawData.match(regex_arr[index]) !== null) {
+ 
+     //looping over regex_arr arr and comparing rawData with regex
+     for (index = 0; index < barcode_arr.length; index++) {
+       if (store.barcode_type == barcode_arr[index]) {
+         barcodeMatched = true;
+         let regex = new RegExp(regex_arr[index]); 
+         // if this check pass then use split_with else check for length
+         if (regex.test(rawData)) {  
+           console.log("pass");
+           //coomparing regex with barcode
+           if (!isNaN(splitWith[index])) {
+             buchbarcode = rawData.slice(0, -splitWith[index]);
+             components.push(buchbarcode);
+             components.push(
+               rawData.substring(rawData.length - splitWith[index])
+             );
+             //checking if barcode which matched with regex has stodeId in format or not if not then add
+             if (!barcodeFormats[index].storeid_available) {
+               components.unshift(store.store_id);
+             }
+             if (!barcodeFormats[index].boxno_avaiable) {
+               components.push("01");
+             }
+           } else {
+             components = rawData.split(splitWith[index]);
+             //checking if barcode which matched with regex has stodeId in format or not if not then add
+             if (!barcodeFormats[index].storeid_available) {
+               components.unshift(store.store_id);
+             }
+             if (!barcodeFormats[index].boxno_avaiable) {
+               components.push("01");
+             }
+           }
+ 
+           break;
+         } else {
+            buchbarcode = rawData;
+            //checking if db provides check_length and if provides, is it greter than rawData length
+           if (
+             !barcodeFormats[index].check_length ||
+             rawData.length > barcodeFormats[index].check_length
+           ) {
+             if (
+               barcodeFormats[index].drop_last&&
+               barcodeFormats[index].drop_last[0] &&
+               barcodeFormats[index].drop_last[0].true &&
+               barcodeFormats[index].drop_last[0].true != 0
+             ) {
+               //if drop_last[0].true exist not zero then use slice
+               buchbarcode = buchbarcode.slice(
+                 0,
+                 -barcodeFormats[index].drop_last[0].true
+               );
+             }
+             if (barcodeFormats[index].drop_first &&
+               barcodeFormats[index].drop_first[0] &&
+               barcodeFormats[index].drop_first[0].true &&
+               barcodeFormats[index].drop_first[0].true != 0) {
+                //if drop_first exist not zero then use slice
+               buchbarcode = buchbarcode.slice(
+                 barcodeFormats[index].drop_first[0].true
+               );
+               //console.log(buchbarcode);
+             }
+           }
+            //checking if db provides check_length and if provides, is it less than rawData length
+           if (
+             !barcodeFormats[index].check_length ||
+             rawData.length < barcodeFormats[index].check_length
+           ) {
+             if (barcodeFormats[index].drop_last&&
+               barcodeFormats[index].drop_last[1]&&
+               barcodeFormats[index].drop_last[1].false &&
+               barcodeFormats[index].drop_last[1].false != 0
+             ) {
+               buchbarcode = buchbarcode.slice(
+                 0,
+                 -barcodeFormats[index].drop_last[1].false
+               );
+             }
+             if (barcodeFormats[index].drop_first &&
+               barcodeFormats[index].drop_first[1]&&
+               barcodeFormats[index].drop_first[1].false &&
+               barcodeFormats[index].drop_first[1].false != 0) {
+               buchbarcode = buchbarcode.slice(
+                 barcodeFormats[index].drop_first[1].false
+               );
+             }
+           }
+          // console.log(buchbarcode);
+           if (!barcodeFormats[index].storeid_available) {
+             components.unshift(store.store_id);
+           }
+           components.push(buchbarcode);
+           if (!barcodeFormats[index].boxno_avaiable) {
+             components.push("01");
+           }
+           break;
+         }
+       }
+     }
     if (!barcodeMatched) {
       switch (store.barcode_type) {
         case "MICRO":
@@ -1259,70 +1330,109 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
     barcodeFormats.push(barcodeFormatBUCH);
     //adding values in splitWith & regex_arr & getting from barcode_format collection
     splitWith = barcodeFormats.map((value) => value.split_with);
-    // regex_arr = barcodeFormats.map((value) => value.regexformat);
+    regex_arr = barcodeFormats.map((value) => value.regexformat);
+    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
     // for (index = 0; index < regex_arr.length; index++) {
     //   if (rawData.match(regex_arr[index]) !== null) {
-    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
 
     //looping over regex_arr arr and comparing rawData with regex
     for (index = 0; index < barcode_arr.length; index++) {
       if (store.barcode_type == barcode_arr[index]) {
-        //coomparing regex with barcode
-        if (!isNaN(splitWith[index])) {
-          buchbarcode = rawData.slice(0, -splitWith[index]);
-          components.push(buchbarcode);
-          components.push(rawData.substring(rawData.length - splitWith[index]));
-          //checking if barcode which matched with regex has stodeId in format or not if not then add
-          if (!barcodeFormats[index].storeid_available) {
-            components.unshift(store.store_id);
-          }
-          if (!barcodeFormats[index].boxno_avaiable) {
-            components.push("01");
-          }
-        } else {
-          components = rawData.split(splitWith[index]);
-          //checking if barcode which matched with regex has stodeId in format or not if not then add
-          if (!barcodeFormats[index].storeid_available) {
-            components.unshift(store.store_id);
-          }
-          if (!barcodeFormats[index].boxno_avaiable) {
-            components.push("01");
-          }
-        }
         barcodeMatched = true;
-        break;
-      }
-    }
-    if (!barcodeMatched) {
-      switch (store.barcode_type) {
-        case "MICRO":
-          components = [];
-          components.push(store.store_id);
-          buchbarcode = rawData;
-          if (buchbarcode.includes("RX")) {
-            buchbarcode = rawData.slice(0, -2);
+        let regex = new RegExp(regex_arr[index]); 
+        // if this check pass then use split_with else check for length
+        if (regex.test(rawData)) {  
+          console.log("pass");
+          //coomparing regex with barcode
+          if (!isNaN(splitWith[index])) {
+            buchbarcode = rawData.slice(0, -splitWith[index]);
+            components.push(buchbarcode);
+            components.push(
+              rawData.substring(rawData.length - splitWith[index])
+            );
+            //checking if barcode which matched with regex has stodeId in format or not if not then add
+            if (!barcodeFormats[index].storeid_available) {
+              components.unshift(store.store_id);
+            }
+            if (!barcodeFormats[index].boxno_avaiable) {
+              components.push("01");
+            }
+          } else {
+            components = rawData.split(splitWith[index]);
+            //checking if barcode which matched with regex has stodeId in format or not if not then add
+            if (!barcodeFormats[index].storeid_available) {
+              components.unshift(store.store_id);
+            }
+            if (!barcodeFormats[index].boxno_avaiable) {
+              components.push("01");
+            }
+          }
+
+          break;
+        } else {
+           buchbarcode = rawData;
+           //checking if db provides check_length and if provides, is it greter than rawData length
+          if (
+            !barcodeFormats[index].check_length ||
+            rawData.length > barcodeFormats[index].check_length
+          ) {
+            if (
+              barcodeFormats[index].drop_last&&
+              barcodeFormats[index].drop_last[0] &&
+              barcodeFormats[index].drop_last[0].true &&
+              barcodeFormats[index].drop_last[0].true != 0
+            ) {
+              //if drop_last[0].true exist not zero then use slice
+              buchbarcode = buchbarcode.slice(
+                0,
+                -barcodeFormats[index].drop_last[0].true
+              );
+            }
+            if (barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[0] &&
+              barcodeFormats[index].drop_first[0].true &&
+              barcodeFormats[index].drop_first[0].true != 0) {
+               //if drop_first exist not zero then use slice
+              buchbarcode = buchbarcode.slice(
+                barcodeFormats[index].drop_first[0].true
+              );
+              //console.log(buchbarcode);
+            }
+          }
+           //checking if db provides check_length and if provides, is it less than rawData length
+          if (
+            !barcodeFormats[index].check_length ||
+            rawData.length < barcodeFormats[index].check_length
+          ) {
+            if (barcodeFormats[index].drop_last&&
+              barcodeFormats[index].drop_last[1]&&
+              barcodeFormats[index].drop_last[1].false &&
+              barcodeFormats[index].drop_last[1].false != 0
+            ) {
+              buchbarcode = buchbarcode.slice(
+                0,
+                -barcodeFormats[index].drop_last[1].false
+              );
+            }
+            if (barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[1]&&
+              barcodeFormats[index].drop_first[1].false &&
+              barcodeFormats[index].drop_first[1].false != 0) {
+              buchbarcode = buchbarcode.slice(
+                barcodeFormats[index].drop_first[1].false
+              );
+            }
+          }
+         // console.log(buchbarcode);
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
           }
           components.push(buchbarcode);
-          components.push("01");
-          break;
-        case "RX30":
-          components = [];
-          components.push(store.store_id);
-          if (rawData.length > 8) {
-            let rawData2 = rawData.substring(4);
-            rawData2 = rawData2.slice(0, -1);
-            components.push(rawData2);
-          } else {
-            components.push(rawData.slice(0, -2));
+          if (!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
           }
-          components.push("01");
           break;
-        default:
-          components = [];
-          components.unshift(store.store_id);
-          components.push(rawData);
-          components.push("-01");
-          break;
+        }
       }
     }
     //checking box scanned

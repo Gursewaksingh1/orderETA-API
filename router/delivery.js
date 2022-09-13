@@ -5,7 +5,8 @@ const isAuth = require("../middleware/isAuth");
 const {
   deliveryValidationRules,
   smsManagerValidation,
-  notifyManagerUserReturnValidation,returnOrder
+  notifyManagerUserReturnValidation,returnOrder,
+  customerPage
 } = require("../validatorSchema/validationrules");
 const validate = require("../validatorSchema/validatemiddleware");
 
@@ -36,6 +37,13 @@ router.post(
   returnOrder(),
   validate,
   deliveryController.tableViewOptionAfterStartDelivery
+);
+router.post(
+  "/customer",
+  isAuth,
+  customerPage(),
+  validate,
+  deliveryController.customerPage
 );
 router.post(
   "/cancelorder",

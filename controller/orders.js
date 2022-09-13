@@ -7,6 +7,7 @@ const BarcodeFormat = require("../model/barcodeformat");
 const Language = require("../model/language");
 let { confirm_orders } = require("../shared/orders");
 
+
 exports.addOrdersForTest = async (req, res) => {
   try {
     const order = new Orders(req.body);
@@ -863,11 +864,12 @@ exports.scanOrderBox = async (req, res) => {
   let store, storeId, orderId, boxNumber;
   let components = [],
     splitWith = [];
-  let buchbarcode;
+  var buchbarcode;
   let rawData = req.body.rawData;
   //if front-end does not send any value then 1
   let check = req.body.check ?? false;
-  let regex_arr = [];
+  let barcode_arr = [];
+  let barcodeMatched = false;
   // console.log(specialChars.test(str))
   let acceptedStatus = [
     "IN_STORE",
@@ -911,7 +913,7 @@ exports.scanOrderBox = async (req, res) => {
         searchby_sub: "searchby_sub",
         check_orders_not_other_drivers_assign:
           "check_orders_not_other_drivers_assign",
-          check_orders_not_empty_assign: "check_orders_not_empty_assign"
+        check_orders_not_empty_assign: "check_orders_not_empty_assign",
       }
     );
     //if these fields not present in store db
@@ -924,7 +926,8 @@ exports.scanOrderBox = async (req, res) => {
     store.searchby_sub = store.searchby_sub ?? 0;
     store.check_orders_not_other_drivers_assign =
       store.check_orders_not_other_drivers_assign ?? 0;
-      store.check_orders_not_empty_assign = store.check_orders_not_empty_assign ?? 0
+    store.check_orders_not_empty_assign =
+      store.check_orders_not_empty_assign ?? 0;
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
@@ -936,13 +939,13 @@ exports.scanOrderBox = async (req, res) => {
     var barcodeFormatBUCH = {};
     //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
     barcodeFormats.forEach((barcodeFormat, i) => {
-      if (barcodeFormat.barcode_type == "BUCH") {
+      if (barcodeFormat.barcode_type == "BUC") {
         barcodeFormatBUCH = barcodeFormat;
       }
     });
     //then remove BUCH record from arr
     barcodeFormats.forEach((barcodeFormat, i) => {
-      if (barcodeFormat.barcode_type == "BUCH") {
+      if (barcodeFormat.barcode_type == "BUC") {
         barcodeFormats.splice(i, i);
       }
     });
@@ -952,35 +955,143 @@ exports.scanOrderBox = async (req, res) => {
     //adding values in splitWith & regex_arr & getting from barcode_format collection
     splitWith = barcodeFormats.map((value) => value.split_with);
     regex_arr = barcodeFormats.map((value) => value.regexformat);
+    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
+    // for (index = 0; index < regex_arr.length; index++) {
+    //   if (rawData.match(regex_arr[index]) !== null) {
 
     //looping over regex_arr arr and comparing rawData with regex
-    for (index = 0; index < regex_arr.length; index++) {
-      if (rawData.match(regex_arr[index]) !== null) {
-        //coomparing regex with barcode
-        if (!isNaN(splitWith[index])) {
-          buchbarcode = rawData.slice(0, -splitWith[index]);
-          components.push(buchbarcode);
-          components.push(rawData.substring(rawData.length - splitWith[index]));
-          //checking if barcode which matched with regex has stodeId in format or not if not then add
-          if (!barcodeFormats[index].storeid_available) {
-            components.unshift(store.store_id);
+    for (index = 0; index < barcode_arr.length; index++) {
+      if (store.barcode_type == barcode_arr[index]) {
+        barcodeMatched = true;
+        let regex = new RegExp(regex_arr[index]); 
+        // if this check pass then use split_with else check for length
+        if (regex.test(rawData)) {  
+          console.log("pass");
+          //coomparing regex with barcode
+          if (!isNaN(splitWith[index])) {
+            buchbarcode = rawData.slice(0, -splitWith[index]);
+            components.push(buchbarcode);
+            components.push(
+              rawData.substring(rawData.length - splitWith[index])
+            );
+            //checking if barcode which matched with regex has stodeId in format or not if not then add
+            if (!barcodeFormats[index].storeid_available) {
+              components.unshift(store.store_id);
+            }
+            if (!barcodeFormats[index].boxno_avaiable) {
+              components.push("01");
+            }
+          } else {
+            components = rawData.split(splitWith[index]);
+            //checking if barcode which matched with regex has stodeId in format or not if not then add
+            if (!barcodeFormats[index].storeid_available) {
+              components.unshift(store.store_id);
+            }
+            if (!barcodeFormats[index].boxno_avaiable) {
+              components.push("01");
+            }
           }
-          if(!barcodeFormats[index].boxno_avaiable) {
-            components.push("01");
-          }
+
+          break;
         } else {
-          components = rawData.split(splitWith[index]);
-          //checking if barcode which matched with regex has stodeId in format or not if not then add
+           buchbarcode = rawData;
+           //checking if db provides check_length and if provides, is it greter than rawData length
+          if (
+            !barcodeFormats[index].check_length ||
+            rawData.length > barcodeFormats[index].check_length
+          ) {
+            if (
+              barcodeFormats[index].drop_last&&
+              barcodeFormats[index].drop_last[0] &&
+              barcodeFormats[index].drop_last[0].true &&
+              barcodeFormats[index].drop_last[0].true != 0
+            ) {
+              //if drop_last[0].true exist not zero then use slice
+              buchbarcode = buchbarcode.slice(
+                0,
+                -barcodeFormats[index].drop_last[0].true
+              );
+            }
+            if (barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[0] &&
+              barcodeFormats[index].drop_first[0].true &&
+              barcodeFormats[index].drop_first[0].true != 0) {
+               //if drop_first exist not zero then use slice
+              buchbarcode = buchbarcode.slice(
+                barcodeFormats[index].drop_first[0].true
+              );
+              //console.log(buchbarcode);
+            }
+          }
+           //checking if db provides check_length and if provides, is it less than rawData length
+          if (
+            !barcodeFormats[index].check_length ||
+            rawData.length < barcodeFormats[index].check_length
+          ) {
+            if (barcodeFormats[index].drop_last&&
+              barcodeFormats[index].drop_last[1]&&
+              barcodeFormats[index].drop_last[1].false &&
+              barcodeFormats[index].drop_last[1].false != 0
+            ) {
+              buchbarcode = buchbarcode.slice(
+                0,
+                -barcodeFormats[index].drop_last[1].false
+              );
+            }
+            if (barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[1]&&
+              barcodeFormats[index].drop_first[1].false &&
+              barcodeFormats[index].drop_first[1].false != 0) {
+              buchbarcode = buchbarcode.slice(
+                barcodeFormats[index].drop_first[1].false
+              );
+            }
+          }
+         // console.log(buchbarcode);
           if (!barcodeFormats[index].storeid_available) {
             components.unshift(store.store_id);
           }
-          if(!barcodeFormats[index].boxno_avaiable) {
+          components.push(buchbarcode);
+          if (!barcodeFormats[index].boxno_avaiable) {
             components.push("01");
           }
+          break;
         }
-        break;
       }
     }
+    if (!barcodeMatched) {
+      switch (store.barcode_type) {
+        case "MICRO":
+          components = [];
+          components.push(store.store_id);
+          buchbarcode = rawData;
+          if (buchbarcode.includes("RX")) {
+            buchbarcode = rawData.slice(0, -2);
+          }
+          components.push(buchbarcode);
+          components.push("01");
+          break;
+        case "RX30":
+          components = [];
+          components.push(store.store_id);
+          if (rawData.length > 8) {
+            let rawData2 = rawData.substring(4);
+            rawData2 = rawData2.slice(0, -1);
+            components.push(rawData2);
+          } else {
+            components.push(rawData.slice(0, -2));
+          }
+          components.push("01");
+          break;
+        default:
+          components = [];
+          components.unshift(store.store_id);
+          components.push(rawData);
+          components.push("-01");
+          break;
+      }
+    }
+    console.log(components);
     // switch (store.barcode_type) {
     //   case "RDT":
     //     components = [];
@@ -1114,48 +1225,46 @@ exports.scanOrderBox = async (req, res) => {
       }
     }
     let order;
-if(store.searchby_sub != 1) {
-  console.log("reached");
-  storeId = components[0];
-  orderId = components[1];
-  boxNumber = parseInt(components[2]);
-   order = await Orders.findOne({
-    store_id: storeId,
-    order_id: orderId,
-  });
-
-} else if(store.searchby_sub == 1) {
-   order = await Orders.findOne({  store_id: storeId,items:{$regex : components[1]}});
-   console.log(order);
-    if(order) {
-      order.items.forEach((item,index) => {
-        if(item == components[1]) {
-          orderId = order.order_id;
-          boxNumber = index + 1;
-        }
-      }) 
-    } else {
+    if (store.searchby_sub != 1) {
+      console.log("reached");
       storeId = components[0];
       orderId = components[1];
       boxNumber = parseInt(components[2]);
-       order = await Orders.findOne({
+      order = await Orders.findOne({
         store_id: storeId,
         order_id: orderId,
       });
+    } else if (store.searchby_sub == 1) {
+      order = await Orders.findOne({
+        store_id: storeId,
+        items: { $regex: components[1] },
+      });
+      console.log(order);
+      if (order) {
+        order.items.forEach((item, index) => {
+          if (item == components[1]) {
+            orderId = order.order_id;
+            boxNumber = index + 1;
+          }
+        });
+      } else {
+        storeId = components[0];
+        orderId = components[1];
+        boxNumber = parseInt(components[2]);
+        order = await Orders.findOne({
+          store_id: storeId,
+          order_id: orderId,
+        });
+      }
     }
-}
-      // storeId = components[0];
-      // orderId = components[1];
-      //  order = await Orders.findOne({
-      //   store_id: storeId,
-      //   order_id: orderId,
-      // });
-   
-   
- 
+    // storeId = components[0];
+    // orderId = components[1];
+    //  order = await Orders.findOne({
+    //   store_id: storeId,
+    //   order_id: orderId,
+    // });
 
     //fetching order
-    
 
     //if order is null
     if (order == null) {
@@ -1261,14 +1370,15 @@ if(store.searchby_sub != 1) {
       //inside (if check) var will tell us if user gave permission for scanning else's order
       if (
         (store.check_orders_not_empty_assign == 1 &&
-          order.driver_string != user.driver_string && !flag &&
+          order.driver_string != user.driver_string &&
+          !flag &&
           !check) ||
         (store.check_orders_not_other_drivers_assign == 1 &&
           order.driver_string != "" &&
-          order.driver_string != user.driver_string &&  !flag &&
+          order.driver_string != user.driver_string &&
+          !flag &&
           !check)
       ) {
-     
         let total_box_scan = await Orders.findOne({
           store_id: storeId,
           order_id: orderId,
@@ -1291,7 +1401,7 @@ if(store.searchby_sub != 1) {
           title: langObj.another_driver_order_heading_text,
           error: responseObj,
         });
-      } else if(!check) {
+      } else if (!check) {
         if (!flag) {
           //if scanning first time order but order belongs to logged in user or anonymous
           let yesterdayDate = moment()
@@ -1362,7 +1472,7 @@ if(store.searchby_sub != 1) {
               visited: { $ne: 1 },
               route_started: { $eq: null },
               driver_string: { $eq: null },
-  
+
               $and: [
                 {
                   datetime_created: {
@@ -1388,7 +1498,7 @@ if(store.searchby_sub != 1) {
             query_for_user_orders,
             query_for_unassigned_orders
           );
-  
+
           if (found_old_order && !password) {
             langObj.oldest_order_found_heading_text =
               langObj.oldest_order_found_heading_text.replace(
@@ -1405,7 +1515,7 @@ if(store.searchby_sub != 1) {
                 "$streetAddress",
                 found_old_order.street_address_text
               );
-  
+
             return res.status(302).send({
               status: langObj.success_status_text,
               statusCode: 302,
@@ -1429,7 +1539,7 @@ if(store.searchby_sub != 1) {
                 "$streetAddress",
                 found_old_order.street_address
               );
-  
+
             return res.status(302).send({
               status: langObj.success_status_text,
               statusCode: 302,
@@ -1441,7 +1551,7 @@ if(store.searchby_sub != 1) {
             found_old_order.hidden = 1;
             found_old_order.save();
           }
-  
+
           let order_is_old = check_if_order_is_old(
             store.check_if_order_is_too_old,
             order,
@@ -1474,7 +1584,7 @@ if(store.searchby_sub != 1) {
               error: langObj.oldest_order_found_content_text,
             });
           }
-  
+
           let order_is_young = check_if_order_is_young(
             store.check_if_order_is_too_young,
             store.young_order_time,
@@ -1499,7 +1609,6 @@ if(store.searchby_sub != 1) {
           }
         }
       }
-    
     } else {
       //old app requirement when strict_box_scan_in ==1 then only through this response
       if (store.strict_box_scan_in == 1) {
@@ -1890,21 +1999,17 @@ exports.updateOrder = async (req, res) => {
     );
 
     if (orders.acknowledged == true) {
-      res
-        .status(200)
-        .send({
-          status: langObj.success_status,
-          statusCode: 200,
-          data: orders,
-        });
+      res.status(200).send({
+        status: langObj.success_status,
+        statusCode: 200,
+        data: orders,
+      });
     } else {
-      res
-        .status(404)
-        .send({
-          status: langObj.success_status,
-          statusCode: 404,
-          error: "orders not updated",
-        });
+      res.status(404).send({
+        status: langObj.success_status,
+        statusCode: 404,
+        error: "orders not updated",
+      });
     }
   } catch (err) {
     console.log(err);

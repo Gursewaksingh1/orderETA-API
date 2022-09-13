@@ -414,6 +414,15 @@ let returnOrder = () => {
     body("longitude").notEmpty().withMessage("longitude should not be empty"),
   ]
 }
+
+let customerPage = () => {
+  return [
+    body("latitude").notEmpty().withMessage("latitude should not be empty"),
+    body("longitude").notEmpty().withMessage("longitude should not be empty"),
+    body("orderId").notEmpty().isString().withMessage("orderId should not be empty"),
+    body("boxNumber").notEmpty().isNumeric().withMessage("boxNumber should not be empty"),
+  ]
+}
 module.exports = {
   deliveryValidationRules,
   updateDeliveryValidationRules,
@@ -431,5 +440,6 @@ module.exports = {
   validate_reason_for_manully_confirm_order,
   smsManagerValidation,
   notifyManagerUserReturnValidation,
-  returnOrder
+  returnOrder,
+  customerPage
 };
