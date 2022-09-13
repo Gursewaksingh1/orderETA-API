@@ -410,12 +410,15 @@ exports.updateOrders = async (req, res) => {
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
     const orderNo = await Orders.find({
-      store_id:user.store_id,
+      store_id: user.store_id,
       order_id: { $in: orderIds },
       visited: { $ne: 1 },
     }).countDocuments();
 
-    const orders = await Orders.find({ store_id:user.store_id,order_id: { $in: orderIds } });
+    const orders = await Orders.find({
+      store_id: user.store_id,
+      order_id: { $in: orderIds },
+    });
 
     let presortedOrder = orders.map((order) => {
       return order.presorted == 1;
@@ -432,7 +435,6 @@ exports.updateOrders = async (req, res) => {
         if (presortedOrder.length !== 0) {
           order.sequence = index + 1;
         }
-       
       }
       if (
         order.boxes_scanned_in != order.total_boxes &&
@@ -510,14 +512,14 @@ exports.updateUser = async (req, res) => {
       user.started_driving = original_route_started || null;
     }
 
-
     user.addresses_yet_to_visit = addresses_yet_to_visit;
     if (order) {
       user.latest_action = `Was directed to drive to ${order.fname} at ${timeStamp}`;
       user.next_stop = `${order.fname} at ${order.street_address}`;
     } else {
       user.latest_action = `Was directed to drive back to store at ${timeStamp}`;
-      user.next_stop = "When left his last stop ETA to store was "+etaDateForParse;
+      user.next_stop =
+        "When left his last stop ETA to store was " + etaDateForParse;
     }
     user.eta_to_store = etaDateForParse;
     user.save();
@@ -837,13 +839,14 @@ exports.cancelRoute = async (req, res) => {
 };
 
 exports.scanOrderForBeginDelivery = async (req, res) => {
-  let regex_arr = [];
+  let barcode_arr = [];
   let components = [],
     splitWith = [];
   let store, failedStatus;
   let rawData = req.body.rawData ?? undefined;
   let orderIds = req.body.orderIds ?? [];
   let flag = false;
+  let barcodeMatched = false;
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
@@ -880,13 +883,13 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
     var barcodeFormatBUCH = {};
     //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
     barcodeFormats.forEach((barcodeFormat, i) => {
-      if (barcodeFormat.barcode_type == "BUCH") {
+      if (barcodeFormat.barcode_type == "BUC") {
         barcodeFormatBUCH = barcodeFormat;
       }
     });
     //then remove BUCH record from arr
     barcodeFormats.forEach((barcodeFormat, i) => {
-      if (barcodeFormat.barcode_type == "BUCH") {
+      if (barcodeFormat.barcode_type == "BUC") {
         barcodeFormats.splice(i, i);
       }
     });
@@ -895,11 +898,14 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
     barcodeFormats.push(barcodeFormatBUCH);
     //adding values in splitWith & regex_arr & getting from barcode_format collection
     splitWith = barcodeFormats.map((value) => value.split_with);
-    regex_arr = barcodeFormats.map((value) => value.regexformat);
+    // regex_arr = barcodeFormats.map((value) => value.regexformat);
+    // for (index = 0; index < regex_arr.length; index++) {
+    //   if (rawData.match(regex_arr[index]) !== null) {
+    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
 
     //looping over regex_arr arr and comparing rawData with regex
-    for (index = 0; index < regex_arr.length; index++) {
-      if (rawData.match(regex_arr[index]) !== null) {
+    for (index = 0; index < barcode_arr.length; index++) {
+      if (store.barcode_type == barcode_arr[index]) {
         //coomparing regex with barcode
         if (!isNaN(splitWith[index])) {
           buchbarcode = rawData.slice(0, -splitWith[index]);
@@ -922,7 +928,40 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
             components.push("01");
           }
         }
+        barcodeMatched = true;
         break;
+      }
+    }
+    if (!barcodeMatched) {
+      switch (store.barcode_type) {
+        case "MICRO":
+          components = [];
+          components.push(store.store_id);
+          buchbarcode = rawData;
+          if (buchbarcode.includes("RX")) {
+            buchbarcode = rawData.slice(0, -2);
+          }
+          components.push(buchbarcode);
+          components.push("01");
+          break;
+        case "RX30":
+          components = [];
+          components.push(store.store_id);
+          if (rawData.length > 8) {
+            let rawData2 = rawData.substring(4);
+            rawData2 = rawData2.slice(0, -1);
+            components.push(rawData2);
+          } else {
+            components.push(rawData.slice(0, -2));
+          }
+          components.push("01");
+          break;
+        default:
+          components = [];
+          components.unshift(store.store_id);
+          components.push(rawData);
+          components.push("-01");
+          break;
       }
     }
     //checking box scanned
@@ -1030,6 +1069,316 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
   }
 };
 
+exports.scanOrderAtCustomerPage = async (req, res) => {
+  let barcode_arr = [];
+  let components = [],
+    splitWith = [];
+  let store, failedStatus;
+  let rawData = req.body.rawData ?? undefined;
+  let orderIds = req.body.orderIds ?? [];
+  let flag = false;
+  let barcodeMatched = false;
+  let cust_orderId = req.body.orderId;
+  let acceptedStatus = ["CURRENT_SCANNED_OUT"];
+  let confirmedBoxes = 0;
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    store = await findData(
+      Store,
+      { store_id: user.store_id },
+      {
+        show_yesterdays_orders_too: "show_yesterdays_orders_too",
+        barcode_type: "barcode_type",
+        store_id: "store_id",
+        barcode_minimum: "barcode_minimum",
+        strict_box_scan_in: "strict_box_scan_in",
+        old_order_time: "old_order_time",
+        check_for_old_orders_first: "check_for_old_orders_first",
+        check_if_order_is_too_old: "check_if_order_is_too_old",
+        young_order_time: "young_order_time",
+        check_if_order_is_too_young: "check_if_order_is_too_young",
+        admin_pass: "admin_pass",
+        searchby_sub: "searchby_sub",
+      }
+    );
+    store.searchby_sub = store.searchby_sub ?? 0;
+
+    //converting rawData into string in case front end send it as number
+    rawData = rawData.toString();
+
+    //getting barcode format from db
+    var barcodeFormats = await BarcodeFormat.find();
+    barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
+    // console.log({barcodeFormats});
+
+    var barcodeFormatBUCH = {};
+    //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUC") {
+        barcodeFormatBUCH = barcodeFormat;
+      }
+    });
+    //then remove BUCH record from arr
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUC") {
+        barcodeFormats.splice(i, i);
+      }
+    });
+
+    //now push it to the array
+    barcodeFormats.push(barcodeFormatBUCH);
+    //adding values in splitWith & regex_arr & getting from barcode_format collection
+    splitWith = barcodeFormats.map((value) => value.split_with);
+    // regex_arr = barcodeFormats.map((value) => value.regexformat);
+    // for (index = 0; index < regex_arr.length; index++) {
+    //   if (rawData.match(regex_arr[index]) !== null) {
+    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
+
+    //looping over regex_arr arr and comparing rawData with regex
+    for (index = 0; index < barcode_arr.length; index++) {
+      if (store.barcode_type == barcode_arr[index]) {
+        //coomparing regex with barcode
+        if (!isNaN(splitWith[index])) {
+          buchbarcode = rawData.slice(0, -splitWith[index]);
+          components.push(buchbarcode);
+          components.push(rawData.substring(rawData.length - splitWith[index]));
+          //checking if barcode which matched with regex has stodeId in format or not if not then add
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
+          if (!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
+          }
+        } else {
+          components = rawData.split(splitWith[index]);
+          //checking if barcode which matched with regex has stodeId in format or not if not then add
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
+          if (!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
+          }
+        }
+        barcodeMatched = true;
+        break;
+      }
+    }
+    if (!barcodeMatched) {
+      switch (store.barcode_type) {
+        case "MICRO":
+          components = [];
+          components.push(store.store_id);
+          buchbarcode = rawData;
+          if (buchbarcode.includes("RX")) {
+            buchbarcode = rawData.slice(0, -2);
+          }
+          components.push(buchbarcode);
+          components.push("01");
+          break;
+        case "RX30":
+          components = [];
+          components.push(store.store_id);
+          if (rawData.length > 8) {
+            let rawData2 = rawData.substring(4);
+            rawData2 = rawData2.slice(0, -1);
+            components.push(rawData2);
+          } else {
+            components.push(rawData.slice(0, -2));
+          }
+          components.push("01");
+          break;
+        default:
+          components = [];
+          components.unshift(store.store_id);
+          components.push(rawData);
+          components.push("-01");
+          break;
+      }
+    }
+    //checking box scanned
+    if (rawData.length < store.barcode_minimum) {
+      return res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        type: "grid",
+        title: langObj.invalid_barcode_heading_text,
+        error: langObj.invalid_barcode_length_text,
+      });
+    } else if (store.barcode_type == "RDT" && rawData.includes("/") == false) {
+      return res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        type: "grid",
+        title: langObj.invalid_barcode_heading_text,
+        error: langObj.invalid_barcode_text,
+      });
+    } else {
+      if (components.length != 3) {
+        return res.status(406).send({
+          status: langObj.failed_status_text,
+          statusCode: 406,
+          type: "grid",
+          title: langObj.invalid_barcode_heading_text,
+          error: langObj.uncomplete_barcode_text,
+        });
+      } else if (user.store_id != components[0]) {
+        langObj.invalid_storeId_in_barcode_text =
+          langObj.invalid_storeId_in_barcode_text.replace(
+            "$barcodeData",
+            rawData
+          );
+        return res.status(404).send({
+          status: langObj.failed_status_text,
+          statusCode: 402,
+          type: "grid",
+          title: langObj.warning_text,
+          error: langObj.invalid_storeId_in_barcode_text,
+        });
+      } else if (components[2] == null) {
+        langObj.missing_boxno_in_barcode_text =
+          langObj.missing_boxno_in_barcode_text.replace(
+            "$barcodeData",
+            rawData
+          );
+        return res.status(404).send({
+          status: langObj.failed_status_text,
+          statusCode: 404,
+          type: "grid",
+          title: langObj.warning_text,
+          error: langObj.missing_boxno_in_barcode_text,
+        });
+      }
+    }
+    let storeId = components[0];
+    let orderId = components[1];
+    boxNo = components[2];
+    const orders = await Orders.find({
+      order_id: { $in: orderIds },
+      store_id: user.store_id,
+    });
+
+    //searchby_sub is 1 then orderid and box number will be recalculated acc to following
+    if (store.searchby_sub == 1) {
+      orders.forEach((order) => {
+        if (order.items.includes(components[1])) {
+          orderId = order.order_id;
+          let orderItems = order.items;
+          orderItems.forEach((item, i) => {
+            if (item == components[1]) {
+              boxNo = i + 1;
+            }
+          });
+        }
+      });
+    }
+    let order = await Orders.findOne({ order_id: orderId, store_id: storeId });
+    let custOrder = await Orders.findOne({ order_id: cust_orderId, store_id });
+    //checking if cust orderid matches with scanned order box if not then check if
+    //scanned orderid matches with all orders
+    if (orderId != cust_orderId) {
+      //comapring with cust id
+      //comparing with all orders
+
+      orders.forEach((order) => {
+        if (order.order_id == orderId) {
+          flag = true;
+        }
+      });
+      if (flag) {
+        langObj.another_customer_order_content_text =
+          langObj.another_customer_order_content_text.replace(
+            "$orderName",
+            order.fname
+          );
+        langObj.another_customer_order_content_text =
+          langObj.another_customer_order_content_text.replace(
+            "$streetAddress",
+            order.street_address
+          );
+        langObj.another_customer_order_content_text =
+          langObj.another_customer_order_content_text.replace(
+            "$custOrderName",
+            custOrder.fname
+          );
+        langObj.another_customer_order_content_text =
+          langObj.another_customer_order_content_text.replace(
+            "$custOrderStreetAddress",
+            custOrder.street_address
+          );
+        return res.status(404).send({
+          status: langObj.failed_status_text,
+          statusCode: 404,
+          responseObj: {
+            heading: langObj.another_customer_order_heading_text,
+            content: langObj.another_customer_order_content_text,
+          },
+        });
+      } else {
+        langObj.another_customer_order_content_2_text =
+          langObj.another_customer_order_content_2_text.replace(
+            "$orderName",
+            custOrder.fname
+          );
+        langObj.another_customer_order_content_2_text =
+          langObj.another_customer_order_content_2_text.replace(
+            "$streetAddress",
+            custOrder.street_address
+          );
+        return res.status(404).send({
+          status: langObj.failed_status_text,
+          statusCode: 404,
+          responseObj: {
+            heading: langObj.another_customer_order_heading_text,
+            content: langObj.another_customer_order_content_2_text,
+          },
+        });
+      }
+    }
+    //in old app they are updating scanned box status without condition
+    custOrder.boxes.forEach((box) => {
+      if (box.number == boxNo) {
+        box.status.type = "CURRENT_SCANNED_OUT";
+        box.status.description =
+          "Box is already scanned out and delivered to the customer.";
+        box.status.driver_id = req.user.userId;
+      }
+    });
+    //fetching confirmedBoxes count
+    custOrder.boxes.forEach((box) => {
+      if (acceptedStatus.includes(box.status.type)) {
+        confirmedBoxes++;
+      }
+    });
+    custOrder.visited = 1;
+    custOrder.returned = 0;
+    let leftBoxes = custOrder.total_boxes - confirmedBoxes;
+    if (leftBoxes <= 0) {
+      res
+        .status(200)
+        .send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          responseObj: {heading:langObj.all_boxes_scanned_text},
+        });
+    } else {
+     langObj.boxes_scanned_text = langObj.boxes_scanned_text.replace("$boxesLeft",leftBoxes);
+     langObj.boxes_scanned_text = langObj.boxes_scanned_text.replace("$scannedBoxes",confirmedBoxes)
+      res
+        .status(200)
+        .send({
+          status: langObj.success_status_text,
+          statusCode: 200,
+          responseObj: {heading:langObj.boxes_scanned_text},
+        }); 
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
 /**
  *   @swagger
  *   components:
@@ -1174,59 +1523,69 @@ exports.cancelOrdeAtCustomerPage = async (req, res) => {
       store_id: user.store_id,
       order_id: orderId,
     });
-    if(!order) {
-      res.status(404).send({status:langObj.failed_status_text,statusCode:404,error:langObj.invalid_order_id_text})
+    if (!order) {
+      res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        error: langObj.invalid_order_id_text,
+      });
     }
     if (option == 1) {
-      order.boxes.forEach(box => {
-        if(acceptedStatus.includes(box.status.type)) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
           box.status.type = "RETURNED";
-          box.status.description = "Box is returned to the store. The driver's reason: Nobody Home";
+          box.status.description =
+            "Box is returned to the store. The driver's reason: Nobody Home";
           box.status.driver_id = req.user.userId;
         }
-      })
+      });
       order.visited = 1;
-      order.returned = 1; 
+      order.returned = 1;
       order.eta = new Date();
-      order.driver_notes = `Nobody home at ${currentDate} - returning order to store`
+      order.driver_notes = `Nobody home at ${currentDate} - returning order to store`;
       order.save();
       let stepString = `returning ${order.fname} ${order.street_address}  order to store because nobody was home to receive delivery`;
       driverSteps(stepType, stepString, user, longitude, latitude);
-    } else if(option == 2) {
-      order.boxes.forEach(box => {
-        if(acceptedStatus.includes(box.status.type)) {
+    } else if (option == 2) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
           box.status.type = "RETURNED";
-          box.status.description = "Box is returned to the store. The driver's reason: No Payment";
+          box.status.description =
+            "Box is returned to the store. The driver's reason: No Payment";
           box.status.driver_id = req.user.userId;
         }
-      })
+      });
       order.visited = 1;
-      order.returned = 1; 
+      order.returned = 1;
       order.eta = new Date();
-      order.driver_notes = `Due to no payment received at ${currentDate} - returning order to store`
+      order.driver_notes = `Due to no payment received at ${currentDate} - returning order to store`;
       order.save();
       let stepString = `returning ${order.fname} ${order.street_address}  order to store because of non-payment of COD`;
       driverSteps(stepType, stepString, user, longitude, latitude);
     } else if (option == 3) {
-      order.boxes.forEach(box => {
-        if(acceptedStatus.includes(box.status.type)) {
+      order.boxes.forEach((box) => {
+        if (acceptedStatus.includes(box.status.type)) {
           box.status.type = "NOT_DELIVERED";
           box.status.description = "Driver saved order for future delivery.";
           box.status.driver_id = req.user.userId;
         }
-      })
+      });
       order.visited = 1;
-      order.returned = 1; 
+      order.returned = 1;
       order.eta = new Date();
-      order.driver_notes = `Driver marked this order as "Deliver Later" at ${currentDate}`
+      order.driver_notes = `Driver marked this order as "Deliver Later" at ${currentDate}`;
       order.save();
       let stepString = `Driver marked this order as "Deliver Later" at ${currentDate}`;
       driverSteps(stepType, stepString, user, longitude, latitude);
     }
-    res.status(200).send({status:langObj.success_status_text,statusCode:200,message:"order has been cancelled"})
+    res.status(200).send({
+      status: langObj.success_status_text,
+      statusCode: 200,
+      message: "order has been cancelled",
+    });
   } catch (err) {
     console.log(err);
-    res.status(400).send({ status: failedStatus, statusCode: 400, error: err }); 
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
 };
 exports.sendSmsOnStartDeliveryToManager = async (req, res) => {
