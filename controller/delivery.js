@@ -371,12 +371,10 @@ exports.confirmBoxAtStartDelivery = async (req, res) => {
     failedStatus = langObj.failed_status_text;
     const order = await Orders.findOne({ order_id: orderId });
     const reasons = await Reason.find();
-    confirmReasonArr = reasons.map(reason => {
-      if (reason.type == "CONFIRM") {
-
-      }
-    })
-    if(order.boxes) {
+    console.log(order);
+    if(!order) {
+      return res.status(404).send({sttaus:langObj.failed_status_text,statusCode:404,error:"invalid id"})
+    }
       order.boxes.forEach((box) => {
         if (box.number == boxNo) {
           flag = true;
@@ -401,7 +399,7 @@ exports.confirmBoxAtStartDelivery = async (req, res) => {
           });
         }
       });
-    }
+    
    
     if (!flag) {
       res.status(404).send({
