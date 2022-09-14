@@ -11,6 +11,7 @@ const Reason = require("../model/reason");
 const Logged_routing_request = require("../model/loggedroutingrequests");
 const Language = require("../model/language");
 const moment = require("moment");
+const DriverSteps = require("../model/driversteps");
 /**
  *   @swagger
  *   components:
@@ -479,6 +480,39 @@ exports.add_user_image = async (req, res) => {
       .send({ status: failed_status, statusCode: 400, error: err });
   }
 };
+exports.driverSteps = async (req, res) => {
+  const userId = req.user.userId;
+  let failedStatus;
+  let startLongitude = req.body.longitude;
+  let startLatitude = req.body.latitude;
+  let originalRouteStarted = req.body.original_route_started;
+  let stepString = req.body.step_string;
+  let stepType = req.body.stepType;
+  try {
+    const user = await User.findOne({ _id: userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const driverSteps = new DriverSteps({
+      step_date: new Date(),
+      route_started: originalRouteStarted ?? "",
+      step_geopoint: [startLongitude, startLatitude],
+      user_id: req.user.userId,
+      step_string: stepString,
+      step_type: stepType,
+      _created_at: new Date(),
+      _updated_at: new Date(),
+    });
+    driverSteps.save();
+    res.status(201).send({
+      staus: langObj.success_status_text,
+      statusCode: 201,
+      message: "driver step has been recorded",
+    });
+  } catch (err) {
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
 //user actions
 exports.user_actions = async (req, res) => {
   let { action, latitude, longitude } = req.body;
@@ -752,7 +786,6 @@ exports.login = async (req, res) => {
         error: "invaild username or password",
       });
     } else {
-      console.log(password);
       //comparing password using bcrypt
       bcrypt
         .compare(password.toString(), user._hashed_password)

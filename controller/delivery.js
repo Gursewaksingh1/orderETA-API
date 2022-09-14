@@ -1,5 +1,4 @@
 const User = require("../model/user");
-// const DriverSteps = require("../model/driversteps");
 const Orders = require("../model/orders");
 const Store = require("../model/store");
 const Language = require("../model/language");
@@ -236,6 +235,7 @@ exports.startDelivery = async (req, res) => {
       responseObj = {
         status: langObj.failed_status_text,
         statusCode: 400,
+        isSegueing: user.is_segueing,
         heading: langObj.box_not_scanned_heading_text + missingBoxes,
         missingBoxes: missingBoxes,
         content: langObj.box_not_scanned_content_text,
@@ -250,30 +250,30 @@ exports.startDelivery = async (req, res) => {
     }
     //allow_manully_confirm is a flag and it would be true when user select option i can't scan boxes
     if (allow_manully_confirm) {
-      if (user.is_segueing == 1) {
-        const reasons = await Reason.find();
-        reasons.forEach((reason) => {
-          if (reason.type == "CONFIRM") {
-            confirmReasons.push(reason.text);
-          } else if (reason.type == "UNCONFIRM") {
-            unConfirmReasons.push(reason.text);
-          }
-        });
-        return res.status(400).send({
-          status: failedStatus,
-          statusCode: 400,
-          message: missingBoxes,
-          confirmReason: confirmReasons,
-          unConfirmReason: unConfirmReasons,
-        });
-      } else {
+      // if (user.is_segueing == 1) {
+      //   const reasons = await Reason.find();
+      //   reasons.forEach((reason) => {
+      //     if (reason.type == "CONFIRM") {
+      //       confirmReasons.push(reason.text);
+      //     } else if (reason.type == "UNCONFIRM") {
+      //       unConfirmReasons.push(reason.text);
+      //     }
+      //   });
+      //   return res.status(400).send({
+      //     status: failedStatus,
+      //     statusCode: 400,
+      //     message: missingBoxes,
+      //     confirmReason: confirmReasons,
+      //     unConfirmReason: unConfirmReasons,
+      //   });
+      // } else {
         //this else block will work when user selected option "i can't scan orders"
         allOrders = start_delivery_manually_confirm(
           allOrders,
           confirmedStatus,
           req.user.userId
         );
-      }
+      // }
     }
     if (admin_override && user.Language == 1 && !password) {
       return res.status(200).send({
@@ -370,11 +370,13 @@ exports.confirmBoxAtStartDelivery = async (req, res) => {
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
     const order = await Orders.findOne({ order_id: orderId });
-    const reasons = await Reason.find();
-    console.log(order);
-    if(!order) {
-      return res.status(404).send({sttaus:langObj.failed_status_text,statusCode:404,error:"invalid id"})
-    }
+    if (!order) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
       order.boxes.forEach((box) => {
         if (box.number == boxNo) {
           flag = true;
@@ -433,7 +435,13 @@ exports.updateOrders = async (req, res) => {
       store_id: user.store_id,
       order_id: { $in: orderIds },
     });
-
+    if (!orders) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
     let presortedOrder = orders.map((order) => {
       return order.presorted == 1;
     });
@@ -1240,6 +1248,13 @@ exports.tableViewOptionAfterStartDelivery = async (req, res) => {
       store_id: user.store_id,
       order_id: orderId,
     });
+    if (!order) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
     if (option == 1) {
       order.boxes.forEach((box) => {
         if (acceptedStatus.includes(box.status.type)) {
@@ -1514,7 +1529,13 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
       order_id: { $in: orderIds },
       store_id: user.store_id,
     });
-
+    if (!orders) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
     //searchby_sub is 1 then orderid and box number will be recalculated acc to following
     if (store.searchby_sub == 1) {
       orders.forEach((order) => {
@@ -1531,6 +1552,20 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
     }
     let order = await Orders.findOne({ order_id: orderId, store_id: storeId });
     let custOrder = await Orders.findOne({ order_id: cust_orderId, store_id });
+    if (!order) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
+     if (!custOrder) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
     //checking if cust orderid matches with scanned order box if not then check if
     //scanned orderid matches with all orders
     if (orderId != cust_orderId) {
@@ -1665,6 +1700,13 @@ exports.customerPage = async (req, res) => {
       store_id: user.store_id,
       order_id: orderId,
     });
+    if (!order) {
+     return res.status(404).send({
+        status: langObj.failed_status_text,
+        statusCode: 404,
+        error: langObj.invalid_order_id_text,
+      });
+    }
     user.is_delivering = "1";
     user.latest_action = `Delivering to ${order.fname} ${order.street_address} at ${currentDate}`;
     user.last_location = [latitude, longitude];
@@ -1735,7 +1777,7 @@ exports.cancelOrdeAtCustomerPage = async (req, res) => {
       order_id: orderId,
     });
     if (!order) {
-      res.status(404).send({
+     return res.status(404).send({
         status: langObj.failed_status_text,
         statusCode: 404,
         error: langObj.invalid_order_id_text,
@@ -1826,6 +1868,13 @@ exports.finishDelivery = async (req, res) => {
       store_id: user.store_id,
       order_id: orderId,
     });
+    if (!order) {
+      return res.status(404).send({
+         status: langObj.failed_status_text,
+         statusCode: 404,
+         error: langObj.invalid_order_id_text,
+       });
+     }
     order.eta = new Date();
     order.returned = 0;
     order.visited = 1;
@@ -1870,8 +1919,12 @@ exports.finishDelivery = async (req, res) => {
         box.status.description = "Box delivered with no confirmation needed.";
       } else if (notScannedOutAcceptedStatus.includes(box.status.type)) {
         box.status.type = "MANUALLY_DELIVERED";
+      } else if (notDeliveredAcceptedStatus.includes(box.status.type)) {
+        box.status.type = "NOT_DELIVERED";
       } 
     })
+    res.status(200).send({status:langObj.success_status_text,statusCode:200,data: order})
+    order.save();
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });

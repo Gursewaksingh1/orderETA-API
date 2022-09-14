@@ -32,7 +32,7 @@ router.post(
   isAuth,
   validate_driver_actions(),
   validate,
-  userController.user_actions
+  userController.driverSteps
 );
 router.post(
   "/userImage",

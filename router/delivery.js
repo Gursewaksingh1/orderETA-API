@@ -22,6 +22,7 @@ router.post(
   isAuth,
   deliveryController.confirmBoxAtStartDelivery
 );
+
 router.post("/cancelroute", isAuth, deliveryController.cancelRoute);
 router.post("/scanbox", isAuth, deliveryController.scanOrderForBeginDelivery);
 router.post(
