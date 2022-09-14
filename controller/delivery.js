@@ -358,11 +358,11 @@ exports.startDelivery = async (req, res) => {
   }
 };
 exports.confirmBoxAtStartDelivery = async (req, res) => {
-  let confirmReason = req.body.confirmReason ?? undefined,
-    unConfirmReason = req.body.unConfirmReason ?? undefined;
+  let confirmReason = req.body.confirmReason || undefined,
+    unConfirmReason = req.body.unConfirmReason || undefined;
   let orderId = req.body.orderId;
   let boxNo = req.body.boxNo;
-  boxNo = parseInt(boxNo)
+  boxNo = parseInt(boxNo);
   let flag = false;
   try {
     const user = await User.findOne({ _id: req.user.userId });
@@ -370,29 +370,39 @@ exports.confirmBoxAtStartDelivery = async (req, res) => {
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
     const order = await Orders.findOne({ order_id: orderId });
-    order.boxes.forEach(box => {
-      if(box.number == boxNo ) {
-        flag = true;
-        if (confirmReason) {
-          box.status.type = "MANUALLY_CONFIRMED";
-          box.status.driver_id = req.user.userId;
-          box.status.description =
-            "Box is manually confirmed. The driver's reason: " + confirmReason;
-        } else if (unConfirmReason) {
-          box.status.type = "NOT_CONFIRMED";
-          box.status.driver_id = req.user.userId;
-          box.status.description =
-            "Driver didn't take the box. The driver's reason: " + unConfirmReason;
-        }
-        order.boxes_scanned_in = order.boxes_scanned_in + 1 ?? 1;
-        order.save();
-        res.status(200).send({
-          status: langObj.success_status_text,
-          statusCode: 200,
-          data: order,
-        });
+    const reasons = await Reason.find();
+    confirmReasonArr = reasons.map(reason => {
+      if (reason.type == "CONFIRM") {
+
       }
     })
+    if(order.boxes) {
+      order.boxes.forEach((box) => {
+        if (box.number == boxNo) {
+          flag = true;
+          if (confirmReason) {
+            box.status.type = "MANUALLY_CONFIRMED";
+            box.status.driver_id = req.user.userId;
+            box.status.description =
+              "Box is manually confirmed. The driver's reason: " + confirmReason;
+          } else if (unConfirmReason) {
+            box.status.type = "NOT_CONFIRMED";
+            box.status.driver_id = req.user.userId;
+            box.status.description =
+              "Driver didn't take the box. The driver's reason: " +
+              unConfirmReason;
+          }
+          order.boxes_scanned_in = order.boxes_scanned_in + 1 ?? 1;
+          order.save();
+          res.status(200).send({
+            status: langObj.success_status_text,
+            statusCode: 200,
+            data: order,
+          });
+        }
+      });
+    }
+   
     if (!flag) {
       res.status(404).send({
         status: langObj.failed_status_text,
@@ -881,134 +891,139 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
     //converting rawData into string in case front end send it as number
     rawData = rawData.toString();
 
-     //getting barcode format from db
-     var barcodeFormats = await BarcodeFormat.find();
-     barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
-     // console.log({barcodeFormats});
- 
-     var barcodeFormatBUCH = {};
-     //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
-     barcodeFormats.forEach((barcodeFormat, i) => {
-       if (barcodeFormat.barcode_type == "BUC") {
-         barcodeFormatBUCH = barcodeFormat;
-       }
-     });
-     //then remove BUCH record from arr
-     barcodeFormats.forEach((barcodeFormat, i) => {
-       if (barcodeFormat.barcode_type == "BUC") {
-         barcodeFormats.splice(i, i);
-       }
-     });
- 
-     //now push it to the array
-     barcodeFormats.push(barcodeFormatBUCH);
-     //adding values in splitWith & regex_arr & getting from barcode_format collection
-     splitWith = barcodeFormats.map((value) => value.split_with);
-     regex_arr = barcodeFormats.map((value) => value.regexformat);
-     barcode_arr = barcodeFormats.map((value) => value.barcode_type);
-     // for (index = 0; index < regex_arr.length; index++) {
-     //   if (rawData.match(regex_arr[index]) !== null) {
- 
-     //looping over regex_arr arr and comparing rawData with regex
-     for (index = 0; index < barcode_arr.length; index++) {
-       if (store.barcode_type == barcode_arr[index]) {
-         barcodeMatched = true;
-         let regex = new RegExp(regex_arr[index]); 
-         // if this check pass then use split_with else check for length
-         if (regex.test(rawData)) {  
-           console.log("pass");
-           //coomparing regex with barcode
-           if (!isNaN(splitWith[index])) {
-             buchbarcode = rawData.slice(0, -splitWith[index]);
-             components.push(buchbarcode);
-             components.push(
-               rawData.substring(rawData.length - splitWith[index])
-             );
-             //checking if barcode which matched with regex has stodeId in format or not if not then add
-             if (!barcodeFormats[index].storeid_available) {
-               components.unshift(store.store_id);
-             }
-             if (!barcodeFormats[index].boxno_avaiable) {
-               components.push("01");
-             }
-           } else {
-             components = rawData.split(splitWith[index]);
-             //checking if barcode which matched with regex has stodeId in format or not if not then add
-             if (!barcodeFormats[index].storeid_available) {
-               components.unshift(store.store_id);
-             }
-             if (!barcodeFormats[index].boxno_avaiable) {
-               components.push("01");
-             }
-           }
- 
-           break;
-         } else {
-            buchbarcode = rawData;
-            //checking if db provides check_length and if provides, is it greter than rawData length
-           if (
-             !barcodeFormats[index].check_length ||
-             rawData.length > barcodeFormats[index].check_length
-           ) {
-             if (
-               barcodeFormats[index].drop_last&&
-               barcodeFormats[index].drop_last[0] &&
-               barcodeFormats[index].drop_last[0].true &&
-               barcodeFormats[index].drop_last[0].true != 0
-             ) {
-               //if drop_last[0].true exist not zero then use slice
-               buchbarcode = buchbarcode.slice(
-                 0,
-                 -barcodeFormats[index].drop_last[0].true
-               );
-             }
-             if (barcodeFormats[index].drop_first &&
-               barcodeFormats[index].drop_first[0] &&
-               barcodeFormats[index].drop_first[0].true &&
-               barcodeFormats[index].drop_first[0].true != 0) {
-                //if drop_first exist not zero then use slice
-               buchbarcode = buchbarcode.slice(
-                 barcodeFormats[index].drop_first[0].true
-               );
-               //console.log(buchbarcode);
-             }
-           }
-            //checking if db provides check_length and if provides, is it less than rawData length
-           if (
-             !barcodeFormats[index].check_length ||
-             rawData.length < barcodeFormats[index].check_length
-           ) {
-             if (barcodeFormats[index].drop_last&&
-               barcodeFormats[index].drop_last[1]&&
-               barcodeFormats[index].drop_last[1].false &&
-               barcodeFormats[index].drop_last[1].false != 0
-             ) {
-               buchbarcode = buchbarcode.slice(
-                 0,
-                 -barcodeFormats[index].drop_last[1].false
-               );
-             }
-             if (barcodeFormats[index].drop_first &&
-               barcodeFormats[index].drop_first[1]&&
-               barcodeFormats[index].drop_first[1].false &&
-               barcodeFormats[index].drop_first[1].false != 0) {
-               buchbarcode = buchbarcode.slice(
-                 barcodeFormats[index].drop_first[1].false
-               );
-             }
-           }
+    //getting barcode format from db
+    var barcodeFormats = await BarcodeFormat.find();
+    barcodeFormats = JSON.parse(JSON.stringify(barcodeFormats));
+    // console.log({barcodeFormats});
+
+    var barcodeFormatBUCH = {};
+    //to change position of BUCH format first store BUCH obj in var barcodeFormatBUCH
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUC") {
+        barcodeFormatBUCH = barcodeFormat;
+      }
+    });
+    //then remove BUCH record from arr
+    barcodeFormats.forEach((barcodeFormat, i) => {
+      if (barcodeFormat.barcode_type == "BUC") {
+        barcodeFormats.splice(i, i);
+      }
+    });
+
+    //now push it to the array
+    barcodeFormats.push(barcodeFormatBUCH);
+    //adding values in splitWith & regex_arr & getting from barcode_format collection
+    splitWith = barcodeFormats.map((value) => value.split_with);
+    regex_arr = barcodeFormats.map((value) => value.regexformat);
+    barcode_arr = barcodeFormats.map((value) => value.barcode_type);
+    // for (index = 0; index < regex_arr.length; index++) {
+    //   if (rawData.match(regex_arr[index]) !== null) {
+
+    //looping over regex_arr arr and comparing rawData with regex
+    for (index = 0; index < barcode_arr.length; index++) {
+      if (store.barcode_type == barcode_arr[index]) {
+        barcodeMatched = true;
+        let regex = new RegExp(regex_arr[index]);
+        // if this check pass then use split_with else check for length
+        if (regex.test(rawData)) {
+          console.log("pass");
+          //coomparing regex with barcode
+          if (!isNaN(splitWith[index])) {
+            buchbarcode = rawData.slice(0, -splitWith[index]);
+            components.push(buchbarcode);
+            components.push(
+              rawData.substring(rawData.length - splitWith[index])
+            );
+            //checking if barcode which matched with regex has stodeId in format or not if not then add
+            if (!barcodeFormats[index].storeid_available) {
+              components.unshift(store.store_id);
+            }
+            if (!barcodeFormats[index].boxno_avaiable) {
+              components.push("01");
+            }
+          } else {
+            components = rawData.split(splitWith[index]);
+            //checking if barcode which matched with regex has stodeId in format or not if not then add
+            if (!barcodeFormats[index].storeid_available) {
+              components.unshift(store.store_id);
+            }
+            if (!barcodeFormats[index].boxno_avaiable) {
+              components.push("01");
+            }
+          }
+
+          break;
+        } else {
+          buchbarcode = rawData;
+          //checking if db provides check_length and if provides, is it greter than rawData length
+          if (
+            !barcodeFormats[index].check_length ||
+            rawData.length > barcodeFormats[index].check_length
+          ) {
+            if (
+              barcodeFormats[index].drop_last &&
+              barcodeFormats[index].drop_last[0] &&
+              barcodeFormats[index].drop_last[0].true &&
+              barcodeFormats[index].drop_last[0].true != 0
+            ) {
+              //if drop_last[0].true exist not zero then use slice
+              buchbarcode = buchbarcode.slice(
+                0,
+                -barcodeFormats[index].drop_last[0].true
+              );
+            }
+            if (
+              barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[0] &&
+              barcodeFormats[index].drop_first[0].true &&
+              barcodeFormats[index].drop_first[0].true != 0
+            ) {
+              //if drop_first exist not zero then use slice
+              buchbarcode = buchbarcode.slice(
+                barcodeFormats[index].drop_first[0].true
+              );
+              //console.log(buchbarcode);
+            }
+          }
+          //checking if db provides check_length and if provides, is it less than rawData length
+          if (
+            !barcodeFormats[index].check_length ||
+            rawData.length < barcodeFormats[index].check_length
+          ) {
+            if (
+              barcodeFormats[index].drop_last &&
+              barcodeFormats[index].drop_last[1] &&
+              barcodeFormats[index].drop_last[1].false &&
+              barcodeFormats[index].drop_last[1].false != 0
+            ) {
+              buchbarcode = buchbarcode.slice(
+                0,
+                -barcodeFormats[index].drop_last[1].false
+              );
+            }
+            if (
+              barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[1] &&
+              barcodeFormats[index].drop_first[1].false &&
+              barcodeFormats[index].drop_first[1].false != 0
+            ) {
+              buchbarcode = buchbarcode.slice(
+                barcodeFormats[index].drop_first[1].false
+              );
+            }
+          }
           // console.log(buchbarcode);
-           if (!barcodeFormats[index].storeid_available) {
-             components.unshift(store.store_id);
-           }
-           components.push(buchbarcode);
-           if (!barcodeFormats[index].boxno_avaiable) {
-             components.push("01");
-           }
-           break;
-         }
-       }
-     }
+          if (!barcodeFormats[index].storeid_available) {
+            components.unshift(store.store_id);
+          }
+          components.push(buchbarcode);
+          if (!barcodeFormats[index].boxno_avaiable) {
+            components.push("01");
+          }
+          break;
+        }
+      }
+    }
     if (!barcodeMatched) {
       switch (store.barcode_type) {
         case "MICRO":
@@ -1107,7 +1122,7 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
           return res.status(200).send({
             status: langObj.success_status_text,
             statusCode: 200,
-            box_number:boxNo,
+            box_number: boxNo,
             data: order,
           });
         }
@@ -1125,7 +1140,7 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
           return res.status(200).send({
             status: langObj.success_status_text,
             statusCode: 200,
-            box_number:boxNo,
+            box_number: boxNo,
             data: order,
           });
         }
@@ -1209,7 +1224,7 @@ exports.scanOrderForBeginDelivery = async (req, res) => {
  *       - bearerAuth: []
  */
 
- exports.tableViewOptionAfterStartDelivery = async (req, res) => {
+exports.tableViewOptionAfterStartDelivery = async (req, res) => {
   const option = req.body.option;
   const orderId = req.body.orderId;
   let latitude = req.body.latitude;
@@ -1339,9 +1354,9 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
     for (index = 0; index < barcode_arr.length; index++) {
       if (store.barcode_type == barcode_arr[index]) {
         barcodeMatched = true;
-        let regex = new RegExp(regex_arr[index]); 
+        let regex = new RegExp(regex_arr[index]);
         // if this check pass then use split_with else check for length
-        if (regex.test(rawData)) {  
+        if (regex.test(rawData)) {
           console.log("pass");
           //coomparing regex with barcode
           if (!isNaN(splitWith[index])) {
@@ -1370,14 +1385,14 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
 
           break;
         } else {
-           buchbarcode = rawData;
-           //checking if db provides check_length and if provides, is it greter than rawData length
+          buchbarcode = rawData;
+          //checking if db provides check_length and if provides, is it greter than rawData length
           if (
             !barcodeFormats[index].check_length ||
             rawData.length > barcodeFormats[index].check_length
           ) {
             if (
-              barcodeFormats[index].drop_last&&
+              barcodeFormats[index].drop_last &&
               barcodeFormats[index].drop_last[0] &&
               barcodeFormats[index].drop_last[0].true &&
               barcodeFormats[index].drop_last[0].true != 0
@@ -1388,24 +1403,27 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
                 -barcodeFormats[index].drop_last[0].true
               );
             }
-            if (barcodeFormats[index].drop_first &&
+            if (
+              barcodeFormats[index].drop_first &&
               barcodeFormats[index].drop_first[0] &&
               barcodeFormats[index].drop_first[0].true &&
-              barcodeFormats[index].drop_first[0].true != 0) {
-               //if drop_first exist not zero then use slice
+              barcodeFormats[index].drop_first[0].true != 0
+            ) {
+              //if drop_first exist not zero then use slice
               buchbarcode = buchbarcode.slice(
                 barcodeFormats[index].drop_first[0].true
               );
               //console.log(buchbarcode);
             }
           }
-           //checking if db provides check_length and if provides, is it less than rawData length
+          //checking if db provides check_length and if provides, is it less than rawData length
           if (
             !barcodeFormats[index].check_length ||
             rawData.length < barcodeFormats[index].check_length
           ) {
-            if (barcodeFormats[index].drop_last&&
-              barcodeFormats[index].drop_last[1]&&
+            if (
+              barcodeFormats[index].drop_last &&
+              barcodeFormats[index].drop_last[1] &&
               barcodeFormats[index].drop_last[1].false &&
               barcodeFormats[index].drop_last[1].false != 0
             ) {
@@ -1414,16 +1432,18 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
                 -barcodeFormats[index].drop_last[1].false
               );
             }
-            if (barcodeFormats[index].drop_first &&
-              barcodeFormats[index].drop_first[1]&&
+            if (
+              barcodeFormats[index].drop_first &&
+              barcodeFormats[index].drop_first[1] &&
               barcodeFormats[index].drop_first[1].false &&
-              barcodeFormats[index].drop_first[1].false != 0) {
+              barcodeFormats[index].drop_first[1].false != 0
+            ) {
               buchbarcode = buchbarcode.slice(
                 barcodeFormats[index].drop_first[1].false
               );
             }
           }
-         // console.log(buchbarcode);
+          // console.log(buchbarcode);
           if (!barcodeFormats[index].storeid_available) {
             components.unshift(store.store_id);
           }
@@ -1593,23 +1613,25 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
     custOrder.returned = 0;
     let leftBoxes = custOrder.total_boxes - confirmedBoxes;
     if (leftBoxes <= 0) {
-      res
-        .status(200)
-        .send({
-          status: langObj.success_status_text,
-          statusCode: 200,
-          responseObj: {heading:langObj.all_boxes_scanned_text},
-        });
+      res.status(200).send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        responseObj: { heading: langObj.all_boxes_scanned_text },
+      });
     } else {
-     langObj.boxes_scanned_text = langObj.boxes_scanned_text.replace("$boxesLeft",leftBoxes);
-     langObj.boxes_scanned_text = langObj.boxes_scanned_text.replace("$scannedBoxes",confirmedBoxes)
-      res
-        .status(200)
-        .send({
-          status: langObj.success_status_text,
-          statusCode: 200,
-          responseObj: {heading:langObj.boxes_scanned_text},
-        }); 
+      langObj.boxes_scanned_text = langObj.boxes_scanned_text.replace(
+        "$boxesLeft",
+        leftBoxes
+      );
+      langObj.boxes_scanned_text = langObj.boxes_scanned_text.replace(
+        "$scannedBoxes",
+        confirmedBoxes
+      );
+      res.status(200).send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        responseObj: { heading: langObj.boxes_scanned_text },
+      });
     }
   } catch (err) {
     console.log(err);
@@ -1617,7 +1639,7 @@ exports.scanOrderAtCustomerPage = async (req, res) => {
   }
 };
 
-exports.customerPage = async(req, res) => {
+exports.customerPage = async (req, res) => {
   let boxNo = req.body.boxNumber;
   let latitude = req.body.latitude;
   let longitude = req.body.longitude;
@@ -1626,42 +1648,67 @@ exports.customerPage = async(req, res) => {
   let stepType;
   let currentDate = moment(new Date()).format("h:mm a");
   let currentConfirmedBoxes = 0;
-  let currentConfirmedAcceptedStatus = ["CURRENT_SCANNED_OUT", "CURRENT_MANUALLY_SCANNED_OUT", "CURRENT_MANUALLY_DELIVERED", "CURRENT_NOT_SCANNED_OUT", "CURRENT_NOT_DELIVERED","SCANNED_OUT","MANUALLY_SCANNED_OUT","MANUALLY_DELIVERED"]
+  let currentConfirmedAcceptedStatus = [
+    "CURRENT_SCANNED_OUT",
+    "CURRENT_MANUALLY_SCANNED_OUT",
+    "CURRENT_MANUALLY_DELIVERED",
+    "CURRENT_NOT_SCANNED_OUT",
+    "CURRENT_NOT_DELIVERED",
+    "SCANNED_OUT",
+    "MANUALLY_SCANNED_OUT",
+    "MANUALLY_DELIVERED",
+  ];
   try {
     const user = await User.findOne({ _id: req.user.userId });
     const language = await Language.findOne({ language_id: user.Language });
     const langObj = JSON.parse(language.language_translation);
     failedStatus = langObj.failed_status_text;
-    let order = await Orders.findOne({store_id:user.store_id,order_id:orderId});
+    let order = await Orders.findOne({
+      store_id: user.store_id,
+      order_id: orderId,
+    });
     user.is_delivering = "1";
     user.latest_action = `Delivering to ${order.fname} ${order.street_address} at ${currentDate}`;
-    user.last_location = [latitude,longitude];
+    user.last_location = [latitude, longitude];
     user.save();
-    if(boxNo != 0) {
-      stepString = `Scanned Box Number: ${boxNo ?? 0} to start dropoff procedure for ${order.fname ?? ""} ${order.street_address}`
+    if (boxNo != 0) {
+      stepString = `Scanned Box Number: ${
+        boxNo ?? 0
+      } to start dropoff procedure for ${order.fname ?? ""} ${
+        order.street_address
+      }`;
       driverSteps(stepType, stepString, user, longitude, latitude);
     } else {
-      stepString = `Swiped to start dropoff procedure for ${order.fname ?? ""} ${order.street_address}`
+      stepString = `Swiped to start dropoff procedure for ${
+        order.fname ?? ""
+      } ${order.street_address}`;
       driverSteps(stepType, stepString, user, longitude, latitude);
     }
-    if(order.boxes[boxNo]) {
+    if (order.boxes[boxNo]) {
       order.boxes[boxNo].status.type = "CURRENT_SCANNED_OUT";
-      order.boxes[boxNo].status.description = "Box is already scanned out and delivered to the customer.";
+      order.boxes[boxNo].status.description =
+        "Box is already scanned out and delivered to the customer.";
       order.boxes[boxNo].status.driver_id = req.user.userId;
-    order.save();
+      order.save();
     }
-    order.boxes.forEach(box => {
-      if(currentConfirmedAcceptedStatus.includes(box.status.type)) {
-        currentConfirmedBoxes++
+    order.boxes.forEach((box) => {
+      if (currentConfirmedAcceptedStatus.includes(box.status.type)) {
+        currentConfirmedBoxes++;
       }
     });
-    leftCalculation = (order.total_boxes ?? 1)- (currentConfirmedBoxes ?? 0)
-    res.status(200).send({status:langObj.success_status_text,statusCode:200,data: order});
+    leftCalculation = (order.total_boxes ?? 1) - (currentConfirmedBoxes ?? 0);
+    res
+      .status(200)
+      .send({
+        status: langObj.success_status_text,
+        statusCode: 200,
+        data: order,
+      });
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
   }
-}
+};
 
 exports.cancelOrdeAtCustomerPage = async (req, res) => {
   const option = req.body.option;
@@ -1749,6 +1796,84 @@ exports.cancelOrdeAtCustomerPage = async (req, res) => {
       statusCode: 200,
       message: "order has been cancelled",
     });
+  } catch (err) {
+    console.log(err);
+    res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
+  }
+};
+
+exports.finishDelivery = async (req, res) => {
+  const orderId = req.body.orderId;
+  let failedStatus;
+  const driverNotes = req.body.notes;
+  const isFar = req.body.isFar;
+  let uploadedPicture = req.body.uploadedPicture;
+  let collectingPayment = req.body.collectingPayment;
+  let paidCash = req.body.paidCash;
+  let paidCheck = req.body.paidCheck;
+  let longitude = req.body.longitude;
+  let latitude = req.body.latitude;
+  let scannedAcceptedStatus = ["CURRENT_SCANNED_OUT"];
+  let manualScannedAcceptedStatus = ["CURRENT_MANUALLY_SCANNED_OUT"];
+  let manualAcceptedStatus = ["CURRENT_MANUALLY_DELIVERED"];
+  let notScannedOutAcceptedStatus = ["CURRENT_NOT_SCANNED_OUT"];
+  let notDeliveredAcceptedStatus = ["CURRENT_NOT_DELIVERED"];
+  let manual_still_confimred_status = ["MANUALLY_CONFIRMED"];
+  try {
+    const user = await User.findOne({ _id: req.user.userId });
+    const language = await Language.findOne({ language_id: user.Language });
+    const langObj = JSON.parse(language.language_translation);
+    failedStatus = langObj.failed_status_text;
+    const order = await Orders.findOne({
+      store_id: user.store_id,
+      order_id: orderId,
+    });
+    order.eta = new Date();
+    order.returned = 0;
+    order.visited = 1;
+    if (driverNotes.length != 0) {
+      order.driver_notes = `${user.first_name} wrote:  ${notes}`;
+    }
+    if (isFar) {
+      order.far_from_dest = isFar;
+    }
+    if (uploadedPicture) {
+      order.uploaded_pic = uploadedPicture;
+    }
+    if (collectingPayment != 0) {
+      order.collecting_payment = collectingPayment;
+    }
+    if (paidCash == 1 && paidCheck != 1) {
+      order.payment_details = `Cash: ${cash}`;
+    } else if (paidCheck == 1 && paidCash != 1) {
+      order.payment_details = `Check #:${checkNumber}. Amount: $${totalAmount}`;
+    } else {
+      order.payment_details = `Cash: $${cash}
+      Check #:${checkNumber}. Amount: ${totalAmount}`;
+    }
+    if (user.is_scanning) {
+      order.boxes_scanned_out = order.total_boxes;
+      order.boxes_scanned_out = `${order.total_boxes ?? 0},${latitude},${longitude},123.56,1`
+    } else {
+      order.boxes_scanned_out = `${order.total_boxes ?? 0},${latitude},${longitude},123.57,1`
+    }
+
+    order.boxes.forEach(box => {
+      if(scannedAcceptedStatus.includes(box.status.type)) {
+        box.status.type = "SCANNED_OUT";
+        box.status.description = "Box is already scanned out and delivered to the customer.";
+        box.status.driver_id = req.user.userId;
+      } else if (manualScannedAcceptedStatus.includes(box.status.type)) {
+        box.status.type = "MANUALLY_SCANNED_OUT";
+      }  else if (manualAcceptedStatus.includes(box.status.type)) {
+        box.status.type = "MANUALLY_DELIVERED";
+      } else if (manual_still_confimred_status.includes(box.status.type)) {
+        box.status.type = "MANUALLY_DELIVERED";
+        box.status.description = "Box delivered with no confirmation needed.";
+      } else if (notScannedOutAcceptedStatus.includes(box.status.type)) {
+        box.status.type = "MANUALLY_DELIVERED";
+      } 
+    })
   } catch (err) {
     console.log(err);
     res.status(400).send({ status: failedStatus, statusCode: 400, error: err });
