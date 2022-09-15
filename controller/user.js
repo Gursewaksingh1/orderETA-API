@@ -485,8 +485,8 @@ exports.driverSteps = async (req, res) => {
   let failedStatus;
   let startLongitude = req.body.longitude;
   let startLatitude = req.body.latitude;
-  let originalRouteStarted = req.body.original_route_started;
-  let stepString = req.body.step_string;
+  let originalRouteStarted = req.body.originalRouteStarted;
+  let stepString = req.body.stepString;
   let stepType = req.body.stepType;
   try {
     const user = await User.findOne({ _id: userId });
@@ -514,52 +514,6 @@ exports.driverSteps = async (req, res) => {
   }
 };
 //user actions
-exports.user_actions = async (req, res) => {
-  let { action, latitude, longitude } = req.body;
-  let today = new Date();
-  let currentDateAndTime = today.toISOString();
-  let success_status, failed_status, user_action_message;
-  let userId = req.user.userId;
-  try {
-    //fetching user using user id
-    const user = await User.findOne({ _id: userId });
-    // checking for user language
-    if (user.Language == 1) {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      user_action_message = process.env.USER_ACTION_MESSAGE_ENGLISH;
-    } else if (user.Language == 2) {
-      success_status = process.env.SUCCESS_STATUS_SPANISH;
-      failed_status = process.env.FAILED_STATUS_SPANISH;
-      user_action_message = process.env.USER_ACTION_MESSAGE_SPANISH;
-    } else {
-      success_status = process.env.SUCCESS_STATUS_ENGLISH;
-      failed_status = process.env.FAILED_STATUS_ENGLISH;
-      user_action_message = process.env.USER_ACTION_MESSAGE_ENGLISH;
-    }
-    const driver_action = new DriverActions({
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      action: action,
-      action_location: [latitude, longitude],
-      user_id: req.user.userId,
-      action_date:
-        currentDateAndTime.slice(0, 10) +
-        "-" +
-        currentDateAndTime.slice(12, 20),
-    });
-    driver_action.save();
-    res.status(201).send({
-      status: success_status,
-      statusCode: 201,
-      data: user_action_message,
-    });
-  } catch (err) {
-    res
-      .status(400)
-      .send({ status: failed_status, statusCode: 400, error: err });
-  }
-};
 /**
  *   @swagger
  *   components:

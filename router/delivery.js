@@ -22,7 +22,16 @@ router.post(
   isAuth,
   deliveryController.confirmBoxAtStartDelivery
 );
-
+router.post(
+  "/user",
+  isAuth,
+  deliveryController.updateUser
+);
+router.post(
+  "/orders",
+  isAuth,
+  deliveryController.updateOrders
+);
 router.post("/cancelroute", isAuth, deliveryController.cancelRoute);
 router.post("/scanbox", isAuth, deliveryController.scanOrderForBeginDelivery);
 router.post(
@@ -45,6 +54,11 @@ router.post(
   customerPage(),
   validate,
   deliveryController.customerPage
+);
+router.post(
+  "/scanboxatcustmor",
+  isAuth,
+  deliveryController.scanOrderAtCustomerPage
 );
 router.post(
   "/cancelorder",

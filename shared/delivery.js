@@ -51,7 +51,6 @@ const check_similar_address = async (
       _id: { $nin: objectIds },
     })
   );
-  console.log(similarOrders);
   //if sirmialr address matches with any order address of simialrOrders then send response
   for(order of similarOrders) {
     if (addressArray.includes(order.street_address)) {

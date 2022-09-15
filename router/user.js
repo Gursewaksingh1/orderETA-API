@@ -6,7 +6,6 @@ const {
   driverLoginValidationRules,
   validate_driver_actions,
   validate_user_image,
-  update_user_stops,
   validatedebug_temp,
   validate_logged_routing_request
 } = require("../validatorSchema/validationrules");
@@ -18,8 +17,6 @@ router.get("/userdetails", isAuth, userController.getUser);
 router.put(
   "/user",
   isAuth,
-  update_user_stops(),
-  validate,
   userController.updateUser
 );
 router.post("/debugtemp",isAuth,validatedebug_temp(),validate,userController.debug_temp)
